@@ -4,6 +4,7 @@ from typing import Dict
 
 from cowboy.exceptions import CowboyClientError
 from cowboy.config import DB_PATH
+from cowboy.http import get_latest_github_release
 
 
 class KeyNotFoundError(CowboyClientError):
@@ -28,12 +29,15 @@ class Database:
         Initialize empty json at db_path
         """
         self.db_path = db_path
+        first = False
 
         if not os.path.exists(db_path):
             if os.path.isdir(db_path):
                 os.makedirs(os.path.dirname(db_path), exist_ok=True)
             with open(db_path, "w") as f:
                 f.write("{}")
+
+            first = True
 
         # in case emtpy file or db gets corrupted
         elif os.path.exists(db_path):
@@ -44,6 +48,11 @@ class Database:
                 print("DB corrupted, re-initializing ...")
                 with open(db_path, "w") as f:
                     f.write("{}")
+
+        # initialize the db with the first release
+        if first:
+            release, _ = get_latest_github_release()
+            self.save_upsert("release", release)
 
     def save_upsert(self, key, value):
         """
