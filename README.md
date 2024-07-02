@@ -61,4 +61,4 @@ See the list of TestModules discovered for your repo
 cowboy repo get_tms test_repo
 ```
 
-[Join our discord]([URL](https://discord.com/channels/1257700742312099890/1257700742865621136))
+[Join our discord](https://discord.com/channels/1257700742312099890/1257700742865621136)
