@@ -5,7 +5,7 @@ from enum import Enum
 config = Config(".env")
 
 ENV = config("ENV", default="dev")
-PORT = 3000 if ENV == "release" else 3001
+PORT = config("PORT")
 API_ENDPOINT = "http://18.223.150.134:" + PORT
 
 # JWT settings
@@ -16,8 +16,10 @@ COWBOY_JWT_EXP = config("DISPATCH_JWT_EXP", cast=int, default=308790000)  # Seco
 COWBOY_OPENAI_API_KEY = config("OPENAI_API_KEY")
 
 DB_PASS = config("DB_PASS")
+DB_NAME = config("DB_NAME")
+DB_USER = config("DB_USER")
 SQLALCHEMY_DATABASE_URI = (
-    f"postgresql://cowboyuser2:{DB_PASS}@127.0.0.1:5432/cowboytestdb"
+    f"postgresql://{DB_USER}:{DB_PASS}@127.0.0.1:5432/{DB_NAME}"
 )
 SQLALCHEMY_ENGINE_POOL_SIZE = 50
 

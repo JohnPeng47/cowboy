@@ -34,6 +34,7 @@ async def get_tm_target_coverage(
         db_session=db_session, curr_user=current_user, repo_name=request.repo_name
     )
     src_repo = SourceRepo(Path(repo.source_folder))
+    
     tm_models = select_tms(
         db_session=db_session, repo_id=repo.id, request=request, src_repo=src_repo
     )

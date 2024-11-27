@@ -130,6 +130,8 @@ async def create(
         # have to commit here or because run_test depends on existing RepoConfig
         db_session.commit()
 
+        logger.info(f"Running coverage for repo {repo.repo_name}")
+
         # get base coverage for repo
         service_args = RunServiceArgs(user_id=curr_user.id, task_queue=task_queue)
         cov_res = await run_test(repo.repo_name, service_args)

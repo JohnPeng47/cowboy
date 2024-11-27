@@ -38,7 +38,7 @@ from src.config import PORT
 import uuid
 
 
-import logfire
+# import logfire
 
 log = getLogger(__name__)
 
@@ -207,20 +207,20 @@ class DBMiddleware(BaseHTTPMiddleware):
         return response
 
 
-class LogfireLogUser(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        try:
-            # we have to skip requests with x-task-auth or else logfire will log an exception for this
-            # request when it tries to acces request.state.db
-            if not request.headers.get("x-task-auth", None):
-                with logfire.span("request"):
-                    user = get_current_user(request)
-                    logfire.info("{user}", user=user.email)
-        except AttributeError as e:
-            pass
-        finally:
-            response = await call_next(request)
-            return response
+# class LogfireLogUser(BaseHTTPMiddleware):
+#     async def dispatch(self, request: Request, call_next):
+#         try:
+#             # we have to skip requests with x-task-auth or else logfire will log an exception for this
+#             # request when it tries to acces request.state.db
+#             if not request.headers.get("x-task-auth", None):
+#                 with logfire.span("request"):
+#                     user = get_current_user(request)
+#                     logfire.info("{user}", user=user.email)
+#         except AttributeError as e:
+#             pass
+#         finally:
+#             response = await call_next(request)
+#             return response
 
 
 task_queue = TaskQueue()
@@ -235,7 +235,7 @@ class AddTaskQueueMiddleware(BaseHTTPMiddleware):
         return response
 
 
-app.add_middleware(LogfireLogUser)
+# app.add_middleware(LogfireLogUser)
 app.add_middleware(ExceptionMiddleware)
 app.add_middleware(DBMiddleware)
 app.add_middleware(AddTaskQueueMiddleware)
@@ -249,8 +249,8 @@ app.include_router(tgtcode_router)
 app.include_router(exp_router)
 app.include_router(health_router)
 
-logfire.configure(console=False)
-logfire.instrument_fastapi(app, excluded_urls=["/task/get"])
+# logfire.configure(console=False)
+# logfire.instrument_fastapi(app, excluded_urls=["/task/get"])
 
 
 if __name__ == "__main__":
@@ -262,12 +262,12 @@ if __name__ == "__main__":
     # db_session = Session()
     # start_sync_thread(db_session, task_queue)
 
-    logfire.configure()
+    # logfire.configure()
 
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
-        port=PORT,
+        port=int(PORT),
         # reload=True,
         reload_excludes=["./repos"],
         # log_config=config,

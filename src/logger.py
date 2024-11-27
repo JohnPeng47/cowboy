@@ -4,8 +4,6 @@ import logging
 import os
 from datetime import datetime
 import pytz
-import logfire
-
 
 def converter(timestamp):
     dt = datetime.fromtimestamp(timestamp, tz=pytz.utc)

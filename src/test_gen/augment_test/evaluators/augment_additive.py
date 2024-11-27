@@ -74,7 +74,7 @@ class AugmentAdditiveEvaluator(Evaluator):
                     test_error = cov_res.get_failed(func.name)
                     if test_error:
                         testgen_logger.info(f"[FAILED] Generated Func: {func.name}")
-                        testgen_logger.info(f"Code: {func.to_code()}")
+                        testgen_logger.info(f"Code: \n{func.to_code()}")
 
                         failed_tests.append((func, test_error))
                         continue
@@ -97,12 +97,12 @@ class AugmentAdditiveEvaluator(Evaluator):
                     indv_improve = indvtest_cov.coverage - base_cov
                     if indv_improve.total_cov.covered > 0:
                         testgen_logger.info(f"[IMPROVE] Generated Func: {func.name}")
-                        testgen_logger.info(f"Code: {func.to_code()}")
+                        testgen_logger.info(f"Code: \n{func.to_code()}")
 
                         improved_tests.append((func, indv_improve))
                     else:
                         testgen_logger.info(f"[NOIMPROVE] Generated Func: {func.name}")
-                        testgen_logger.info(f"Code: {func.to_code()}")
+                        testgen_logger.info(f"Code: \n{func.to_code()}")
 
                         noimprov_tests.append((func, TestCoverage([])))
 

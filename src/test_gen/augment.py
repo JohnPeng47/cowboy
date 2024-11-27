@@ -1,4 +1,5 @@
 from cowboy_lib.repo import SourceRepo, GitRepo
+from cowboy_lib.test_modules.test_module import TestModule
 
 from .augment_test.composer import Composer
 from .models import AugmentTestResult
@@ -58,6 +59,7 @@ async def augment_test(
         n_times=AUGMENT_ROUNDS
     )
 
+    # NEWTODO: should add some options for other output formats
     # write all improved test to source file and check out merge on repo
     # serialize tm first
     test_results = []

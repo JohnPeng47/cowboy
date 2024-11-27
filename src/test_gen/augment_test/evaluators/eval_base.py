@@ -48,6 +48,7 @@ class Evaluator(ABC):
             )
             cov_diff = cov_ptched.coverage - base_cov
             # TODO: this covered number is off check
+            # NEWTODO: why can this number be negative?
             testgen_logger.info(
                 f"New coverage from generated tests: {cov_diff.total_cov.covered}"
             )

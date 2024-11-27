@@ -62,7 +62,6 @@ class CowboyUser(Base, TimeStampMixin):
     password = Column(LargeBinary, nullable=False)
     last_mfa_time = Column(DateTime, nullable=True)
     experimental_features = Column(Boolean, default=False)
-    admin = Column(Boolean, default=False)
 
     repos = relationship(
         "RepoConfig", backref="cowboy_user", cascade="all, delete-orphan"
