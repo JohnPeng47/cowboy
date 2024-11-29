@@ -25,6 +25,8 @@ from sqlalchemy.orm import Session
 
 from pathlib import Path
 from typing import List
+from concurrent.futures import ThreadPoolExecutor
+import asyncio
 
 
 def create_tgt_code_models(
@@ -86,6 +88,7 @@ async def create_tgt_coverage(
     repo: RepoConfig,
     tm_models: List[TestModuleModel],
     overwrite: bool = True,
+    max_workers: int = 3,
 ):
     """
     Important function that sets up relationships between TestModule, TargetCode and
@@ -102,24 +105,39 @@ async def create_tgt_coverage(
             db_session=db_session, repo_id=repo.id, cov_list=base_cov.cov_list
         )
 
-    for tm_model in tm_models:
-        # only overwrite existing target_chunks if overwrite flag is set
-        if not overwrite and tm_model.target_chunks:
-            log.info(f"Skipping TM {tm_model.name}")
-            continue
+    async def process_tm_model(tm_model: TestModuleModel):
+        # Create a new session for each thread to ensure thread safety
+        print("Processing TM: ", tm_model.name)
+        thread_session = Session(db_session.get_bind())
+        try:
+            if not overwrite and tm_model.target_chunks:
+                log.info(f"Skipping TM {tm_model.name}")
+                return
 
-        tm = tm_model.serialize(src_repo)
-        # generate src to test mappings
-        targets = await get_tm_target_coverage(
-            repo.repo_name, src_repo, tm, base_cov, run_args
-        )
-        # store chunks and their nodes
-        tgt_code_chunks = create_tgt_code_models(targets, db_session, repo.id, tm_model)
+            tm = tm_model.serialize(src_repo)
+            targets = await get_tm_target_coverage(
+                repo.repo_name, src_repo, tm, base_cov, run_args
+            )
+            tgt_code_chunks = create_tgt_code_models(targets, thread_session, repo.id, tm_model)
 
-        # TODO: convert this to a Logfire log?
-        print(f"{tm_model.name} Chunks: ")
-        for t in tgt_code_chunks:
-            print(t.to_str())
+            print(f"{tm_model.name} Chunks: ")
+            for t in tgt_code_chunks:
+                print(t.to_str())
 
-        tm_model.target_chunks = tgt_code_chunks
-        update_tm(db_session=db_session, tm_model=tm_model)
+            tm_model.target_chunks = tgt_code_chunks
+            update_tm(db_session=thread_session, tm_model=tm_model)
+            thread_session.commit()
+        except Exception as e:
+            thread_session.rollback()
+            raise e
+        finally:
+            thread_session.close()
+
+    # Create thread pool and process models concurrently
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        loop = asyncio.get_event_loop()
+        tasks = [
+            loop.run_in_executor(executor, lambda m=model: asyncio.run(process_tm_model(m)))
+            for model in tm_models
+        ]
+        await asyncio.gather(*tasks)
