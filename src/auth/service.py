@@ -114,7 +114,6 @@ def get_current_user(request: Request) -> CowboyUser:
     # where we are not passed a db session, and we want to proceed with the rest
     # of endpoint logic
     except DBNotSetException:
-        print("No db set")
         return None
 
     # generic case for user not existing

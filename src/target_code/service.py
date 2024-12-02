@@ -16,8 +16,6 @@ def create_target_code(
 ):
     """Create a target code chunk for a test module."""
 
-    print("Creating tgtcode: ", tm_model.id, tm_model.name)
-
     target_code = TargetCodeModel(
         lines=chunk.lines,
         start=chunk.range[0],

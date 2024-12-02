@@ -19,7 +19,7 @@ async def delete_tgt_code(
     db=Depends(get_db),
 ):
     """
-    Delete all target code for a tesst module
+    Delete all target code for a test module
     """
     try:
         repo = get_or_raise(

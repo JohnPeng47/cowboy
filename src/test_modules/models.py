@@ -22,6 +22,7 @@ class TestModuleModel(Base):
     id = Column(Integer, primary_key=True)
     name = Column(String)
     testfilepath = Column(String)
+    # srcpaths = Column(String)
     commit_sha = Column(String)
     experiment_id = Column(String, nullable=True)
     # use this flag to track test_modules that have already gone through
@@ -39,7 +40,7 @@ class TestModuleModel(Base):
         "TargetCodeModel",
         backref="test_module",
         foreign_keys=[TargetCodeModel.test_module_id],
-        cascade="all, delete-orphan",
+        cascade="all",
     )
     test_results = relationship(
         "AugmentTestResult",
@@ -48,6 +49,29 @@ class TestModuleModel(Base):
         cascade="all, delete-orphan",
     )
 
+    # def __init__(
+    #         self,
+    #         name: str,
+    #         testfilepath: str,
+    #         srcpaths: List[str],
+    #         commit_sha: str,
+    #         repo_id: int,
+    #         experiment_id: Optional[str] = None,
+    #         auto_gen: bool = False,
+    # ):
+    #     self.name = name
+    #     self.testfilepath = testfilepath
+    #     self.srcpaths = ",".join(srcpaths)
+    #     self.commit_sha = commit_sha
+    #     self.repo_id = repo_id
+    #     self.experiment_id = experiment_id
+    #     self.auto_gen = auto_gen
+
+    # @property
+    # def srcpaths_list(self) -> List[str]:
+    #     return self.srcpaths.split(",") if self.srcpaths else []
+            
+        
     def serialize(self, src_repo: SourceRepo) -> TestModule:
         """
         Convert model back to TestModule

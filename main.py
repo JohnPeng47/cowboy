@@ -16,7 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 
 import uvicorn
-from logging import getLogger
+from logging import getLogger, Filter
 from src.logger import configure_uvicorn_logger
 from src.auth.service import get_current_user
 
@@ -134,6 +134,7 @@ class ExceptionMiddleware(BaseHTTPMiddleware):
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 content={
                     "detail": [{"msg": f"Runtime error: {e.message}"}],
+                    "error_type": "CowboyRunTimeException",
                     "error": True,
                 },
             )
@@ -257,6 +258,14 @@ if __name__ == "__main__":
     import argparse
     from src.sync_repos import start_sync_thread
 
+    class CustomFilter(Filter):
+        def filter(self, record):
+            return "GET /task/get" not in record.getMessage()
+
+    # Get the uvicorn access logger
+    uvicorn_logger = getLogger("uvicorn.access")
+    uvicorn_logger.addFilter(CustomFilter())
+    
     # start the repo sync thread
     # Session = sessionmaker(bind=engine)
     # db_session = Session()
@@ -264,11 +273,24 @@ if __name__ == "__main__":
 
     # logfire.configure()
 
-    uvicorn.run(
+    class CustomFilter(Filter):
+        def filter(self, record):
+            return "GET /task/get" not in record.getMessage()
+
+    # Move the logger configuration into a function that will be called for each worker
+    async def configure_worker_logger():
+        uvicorn_logger = getLogger("uvicorn.access")
+        uvicorn_logger.addFilter(CustomFilter())
+
+    # Configure the logging when the worker starts
+    config = uvicorn.Config(
         "main:app",
         host="0.0.0.0",
         port=int(PORT),
-        # reload=True,
+        workers=2,
         reload_excludes=["./repos"],
-        # log_config=config,
+        callback_notify=configure_worker_logger # This will run for each worker
     )
+    
+    server = uvicorn.Server(config)
+    server.run()

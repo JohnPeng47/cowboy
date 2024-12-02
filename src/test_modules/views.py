@@ -19,6 +19,8 @@ from sqlalchemy.orm import Session
 from pathlib import Path
 from typing import List
 
+from src.logger import testgen_logger as log
+
 
 tm_router = APIRouter()
 
@@ -34,10 +36,10 @@ async def get_tm_target_coverage(
         db_session=db_session, curr_user=current_user, repo_name=request.repo_name
     )
     src_repo = SourceRepo(Path(repo.source_folder))
-    
     tm_models = select_tms(
         db_session=db_session, repo_id=repo.id, request=request, src_repo=src_repo
     )
+    tm_models = [tm_model for tm_model in tm_models if not tm_model.target_chunks]
 
     try:
         await create_tgt_coverage(
@@ -47,7 +49,6 @@ async def get_tm_target_coverage(
             tm_models=tm_models,
             overwrite=request.overwrite,
         )
-
         return HTTPSuccess()
 
     except ClientRunnerException as e:

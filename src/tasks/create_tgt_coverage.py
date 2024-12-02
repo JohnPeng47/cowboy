@@ -5,11 +5,12 @@ from cowboy_lib.test_modules import TargetCode
 # # Long term tasks represent tasks that we potentially want to offload to celery
 from src.tasks.get_baseline_parallel import get_tm_target_coverage
 
-# from src.tasks.get_baseline import get_tm_target_coverage
 from src.queue.core import TaskQueue
 from src.repo.models import RepoConfig
 from src.auth.models import CowboyUser
 from src.test_modules.models import TestModuleModel
+from src.ast.models import NodeModel
+from src.coverage.models import CoverageModel, coverage_to_model 
 
 from src.runner.service import run_test, RunServiceArgs
 from src.ast.service import create_node, create_or_update_node
@@ -19,67 +20,55 @@ from src.target_code.models import TargetCodeModel
 from src.coverage.service import get_cov_by_filename, upsert_coverage
 from src.utils import async_timed
 
-from src.logger import testgen_logger as log
+from src.logger import buildtm_logger as log
 
 from sqlalchemy.orm import Session
 
 from pathlib import Path
 from typing import List
-from concurrent.futures import ThreadPoolExecutor
-import asyncio
 
 
-def create_tgt_code_models(
-    tgt_code_chunks: List[TargetCode],
-    db_session: Session,
+def tgtcode_to_model(
+    tc: TargetCode,
+    cov_model: CoverageModel,
     repo_id: int,
     tm_model: TestModuleModel,
-) -> List[TargetCodeModel]:
+) -> TargetCodeModel:
     """
-    Create target code models
+    Create target code models with associated nodes in a single transaction
     """
-    target_chunks = []
-    for tgt in tgt_code_chunks:
-        func_scope = (
-            create_or_update_node(
-                db_session=db_session,
-                node=tgt.func_scope,
-                repo_id=repo_id,
-                filepath=str(tgt.filepath),
-            )
-            if tgt.func_scope
-            else None
+    func_scope = (
+        NodeModel(
+            repo_id=repo_id,
+            testfilepath=str(tc.filepath),
+            name=tc.func_scope.name,
+            node_type=tc.func_scope.node_type,
         )
-        class_scope = (
-            create_or_update_node(
-                db_session=db_session,
-                node=tgt.class_scope,
-                repo_id=repo_id,
-                filepath=str(tgt.filepath),
-            )
-            if tgt.class_scope
-            else None
+        if tc.func_scope
+        else None
+    )
+    class_scope = (
+        NodeModel(
+            repo_id=repo_id,
+            testfilepath=str(tc.filepath), 
+            name=tc.class_scope.name,
+            node_type=tc.class_scope.node_type,
         )
+        if tc.class_scope
+        else None
+    )
 
-        target_chunks.append(
-            create_target_code(
-                db_session=db_session,
-                tm_model=tm_model,
-                chunk=tgt,
-                cov_model=get_cov_by_filename(
-                    db_session=db_session,
-                    repo_id=repo_id,
-                    filename=str(tgt.filepath),
-                ),
-                func_scope=func_scope,
-                class_scope=class_scope,
-            )
-        )
+    return TargetCodeModel(
+        start=tc.range[0],
+        end=tc.range[1],
+        lines=tc.lines,
+        filepath=str(tc.filepath),
+        func_scope=func_scope,
+        class_scope=class_scope,
+        test_module_id=tm_model.id,
+        coverage_id=cov_model.id,
+    )
 
-    return target_chunks
-
-
-# TODO:
 @async_timed
 async def create_tgt_coverage(
     *,
@@ -88,56 +77,53 @@ async def create_tgt_coverage(
     repo: RepoConfig,
     tm_models: List[TestModuleModel],
     overwrite: bool = True,
-    max_workers: int = 3,
 ):
     """
     Important function that sets up relationships between TestModule, TargetCode and
     Coverage
     """
-    src_repo = SourceRepo(Path(repo.source_folder))
+    repo_path = Path(repo.source_folder)
+    src_repo = SourceRepo(repo_path)
     run_args = RunServiceArgs(repo.user_id, task_queue)
     base_cov = repo.base_cov
 
-    if overwrite or not base_cov:
-        cov_res = await run_test(repo.repo_name, run_args)
-        base_cov = cov_res.coverage
-        upsert_coverage(
-            db_session=db_session, repo_id=repo.id, cov_list=base_cov.cov_list
+    # NEWDESIGN: in future, consider putting detecting TM updates due to mapped
+    # module changes here
+
+    # NEWTODO: 
+    # if overwrite or not base_cov:
+    #     log.info("Overwriting base coverage ... th ")
+    #     cov_res = await run_test(repo.repo_name, run_args)
+    #     base_cov = cov_res.coverage
+    #     upsert_coverage(
+    #         db_session=db_session, repo_id=repo.id, cov_list=base_cov.cov_list
+    #     )
+
+    for tm_model in tm_models:
+        log.info(f"Building target coverage for: {tm_model.name}")
+        # only overwrite existing target_chunks if overwrite flag is set
+        if not overwrite and tm_model.target_chunks:
+            log.info(f"Skipping {tm_model.name} cuz overwrite: {overwrite}, has_target_chunks: {(bool(tm_model.target_chunks))}")
+            continue
+
+        tm = tm_model.serialize(src_repo)
+
+        # generate src th 
+        tgt_chunks = await get_tm_target_coverage(
+            repo.repo_name, src_repo, tm, base_cov, run_args
         )
+        target_models = []
+        for tc in tgt_chunks:
+            file_cov = base_cov.get_file_cov(tc.filepath)
+            # NEWDESIGN: we are okay with generating new coverage model here for now
+            file_cov_model = coverage_to_model(file_cov)
+            target_models.append(tgtcode_to_model(tc, file_cov_model, repo.id, tm_model))
 
-    async def process_tm_model(tm_model: TestModuleModel):
-        # Create a new session for each thread to ensure thread safety
-        print("Processing TM: ", tm_model.name)
-        thread_session = Session(db_session.get_bind())
-        try:
-            if not overwrite and tm_model.target_chunks:
-                log.info(f"Skipping TM {tm_model.name}")
-                return
+        # TODO: convert this to a Logfire log?
+        # log.info(f"{tm_model.name} Chunks: ")
+        # for t in target_models:
+        #     log.info(t.to_str())
 
-            tm = tm_model.serialize(src_repo)
-            targets = await get_tm_target_coverage(
-                repo.repo_name, src_repo, tm, base_cov, run_args
-            )
-            tgt_code_chunks = create_tgt_code_models(targets, thread_session, repo.id, tm_model)
-
-            print(f"{tm_model.name} Chunks: ")
-            for t in tgt_code_chunks:
-                print(t.to_str())
-
-            tm_model.target_chunks = tgt_code_chunks
-            update_tm(db_session=thread_session, tm_model=tm_model)
-            thread_session.commit()
-        except Exception as e:
-            thread_session.rollback()
-            raise e
-        finally:
-            thread_session.close()
-
-    # Create thread pool and process models concurrently
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        loop = asyncio.get_event_loop()
-        tasks = [
-            loop.run_in_executor(executor, lambda m=model: asyncio.run(process_tm_model(m)))
-            for model in tm_models
-        ]
-        await asyncio.gather(*tasks)
+        tm_model.target_chunks = target_models
+        db_session.merge(tm_model)
+        db_session.commit()

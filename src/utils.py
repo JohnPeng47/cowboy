@@ -38,7 +38,7 @@ def async_timed(func):
         result = await func(*args, **kwargs)
         end_time = time.time()
         testgen_logger.info(
-            f"[PARALLEL] Function {func.__name__} took {end_time - start_time:.4f} seconds"
+            f"Function {func.__name__} took {end_time - start_time:.4f} seconds"
         )
         return result
 

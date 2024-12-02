@@ -4,6 +4,33 @@ import logging
 import os
 from datetime import datetime
 import pytz
+import sys
+
+# class CowboyLogger:
+#     def __init__(self, logger: logging.Logger):
+#         self.logger = logging.getLogger("testgen_logger")
+#         self.logger.setLevel(logging.INFO)
+#         self.logger.addHandler(get_file_handler(file_prefix="testgen"))
+#         self.logger.addHandler(get_console_handler())
+
+#     def _parse_args(self, args):
+#         return ", ".join([str(a) for a in args])
+    
+#     def info(self, *args):
+#         self.logger.info(self._parse_args(args))
+
+#     def warning(self, *args):
+#         self.logger.warning(self._parse_args(args))
+
+#     def error(self, *args):
+#         self.logger.error(self._parse_args(args))
+
+#     def debug(self, *args):
+#         self.logger.debug(self._parse_args(args))
+
+#     def critical(self, *args):
+#         self.logger.critical(self._parse_args(args))
+        
 
 def converter(timestamp):
     dt = datetime.fromtimestamp(timestamp, tz=pytz.utc)
@@ -33,22 +60,27 @@ def get_console_handler():
     """
     Returns a console handler for logging.
     """
-    console_handler = logging.StreamHandler()
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setLevel(logging.INFO)
     console_handler.setFormatter(formatter)
     return console_handler
-
 
 testgen_logger = logging.getLogger("testgen_logger")
 testgen_logger.setLevel(logging.INFO)
 testgen_logger.addHandler(get_file_handler(file_prefix="testgen"))
-testgen_logger.addHandler(get_console_handler())
+# testgen_logger.addHandler(get_console_handler())
+
+buildtm_logger = logging.getLogger("buildtm_logger")
+buildtm_logger.setLevel(logging.INFO)
+buildtm_logger.addHandler(get_file_handler(file_prefix="buildtm"))
+buildtm_logger.addHandler(get_console_handler())
 
 sync_repo = logging.getLogger("sync_repo")
 sync_repo.setLevel(logging.INFO)
 sync_repo.addHandler(get_file_handler(file_prefix="syncrepo"))
-sync_repo.addHandler(get_console_handler())
+# sync_repo.addHandler(get_console_handler())
 
-loggers = [testgen_logger, sync_repo]
+loggers = [testgen_logger, sync_repo, buildtm_logger]
 
 
 def set_log_level(level=logging.INFO):

@@ -31,3 +31,13 @@ class CoverageModel(Base):
             covered_lines=[int(l) for l in self.covered_lines.split(",") if l],
             missing_lines=[int(l) for l in self.missing_lines.split(",") if l],
         )
+
+def coverage_to_model(cov: Coverage) -> CoverageModel:
+    return CoverageModel(
+        filename=cov.filename,
+        covered_lines=",".join(map(str, cov.covered_lines)),
+        missing_lines=",".join(map(str, cov.missing_lines)), 
+        stmts=cov.stmts,
+        misses=cov.misses,
+        covered=cov.covered
+    )

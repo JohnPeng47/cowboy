@@ -1,4 +1,5 @@
 from cowboy_lib.repo import GitRepo, SourceRepo
+from cowboy_lib.coverage import TestCoverage
 
 from src.utils import gen_random_name
 from src.auth.models import CowboyUser
@@ -7,6 +8,7 @@ from src.runner.service import run_test, RunServiceArgs
 from src.queue.core import TaskQueue
 from src.coverage.service import upsert_coverage
 from src.test_modules.service import create_all_tms
+from src.exceptions import CowboyRunTimeException
 
 from .models import RepoConfig, RepoConfigCreate
 from ..test_modules.iter_tms import iter_test_modules
@@ -135,6 +137,11 @@ async def create(
         # get base coverage for repo
         service_args = RunServiceArgs(user_id=curr_user.id, task_queue=task_queue)
         cov_res = await run_test(repo.repo_name, service_args)
+        
+        base_cov = TestCoverage(cov_list=cov_res.coverage.cov_list)
+        if base_cov.total_cov.covered == 0:
+            raise CowboyRunTimeException("No coverage found for repo, probably due to misconfigured test runner config")
+        
         upsert_coverage(
             db_session=db_session,
             repo_id=repo.id,

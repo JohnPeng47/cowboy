@@ -26,14 +26,14 @@ class TargetCodeModel(Base):
     func_scope = relationship(
         "NodeModel",
         foreign_keys=[NodeModel.target_code_id],
-        cascade="all, delete",
+        cascade="all",
         uselist=False,
         single_parent=True,
     )
     class_scope = relationship(
         "NodeModel",
         foreign_keys=[NodeModel.target_code_id],
-        cascade="all, delete",
+        cascade="all",
         uselist=False,
         single_parent=True,
     )

@@ -27,7 +27,7 @@ class RepoConfig(Base):
     remote = Column(String)
     main = Column(String)
     language = Column(String)
-
+    
     # keep this argument fluid, may change
     python_conf = Column(JSON)
     user_id = Column(Integer, ForeignKey("cowboy_user.id"))

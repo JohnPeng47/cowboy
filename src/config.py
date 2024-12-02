@@ -27,9 +27,12 @@ ALEMBIC_INI_PATH = "."
 ALEMBIC_CORE_REVISION_PATH = "alembic"
 
 # LLM settings and test gen settings
-AUGMENT_ROUNDS = 4 if ENV == "release" else 1
+AUGMENT_ROUNDS = 3 if ENV == "release" else 1
 LLM_RETRIES = 3
 AUTO_GEN_SIZE = 7
+MAX_CTXT_SIZE = 10000
+
+
 LOG_DIR = "log"
 REPOS_ROOT = "repos"
 AWS_REGION = "us-east-2"

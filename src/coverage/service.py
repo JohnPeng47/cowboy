@@ -17,7 +17,6 @@ def upsert_coverage(
     """Deletes old coverage and insert new"""
 
     db_session.query(CoverageModel).filter(CoverageModel.repo_id == repo_id).delete()
-
     for coverage in cov_list:
         # if it does not exist, create
         cov_model = CoverageModel(

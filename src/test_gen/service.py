@@ -1,6 +1,6 @@
 from cowboy_lib.repo import SourceRepo
 from src.test_modules.service import (
-    get_all_tms_sorted,
+    get_all_tms,
     get_tms_by_filename,
     get_tms_by_names,
 )
@@ -86,8 +86,8 @@ def get_session_id(request: Request):
 
 def select_tms(*, db_session, repo_id, request: TMSelectModeBase, src_repo: SourceRepo):
     if request.mode == TMSelectMode.AUTO.value:
-        tm_models = get_all_tms_sorted(
-            db_session=db_session, src_repo=src_repo, repo_id=repo_id, n=AUTO_GEN_SIZE
+        tm_models = get_all_tms(
+            db_session=db_session, repo_id=repo_id, n=AUTO_GEN_SIZE
         )
     elif request.mode == TMSelectMode.FILE.value:
         tm_models = get_tms_by_filename(

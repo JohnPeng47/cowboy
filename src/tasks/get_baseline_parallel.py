@@ -4,24 +4,18 @@ from cowboy_lib.test_modules.test_module import TestModule, TargetCode
 from cowboy_lib.utils import testfiles_in_coverage
 
 from src.queue.core import TaskQueue
-
 from src.runner.service import run_test, RunServiceArgs
+from src.logger import buildtm_logger as log
 
-from logging import getLogger
 from typing import List, Tuple
 from pathlib import Path
-
 import asyncio
-
-
-logger = getLogger(__name__)
-
+from collections import defaultdict
 
 class TestInCoverageException(Exception):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.msg = "Test files are included in coverage report"
-
 
 def set_chunks(
     changed_coverage: List[Coverage],
@@ -47,7 +41,7 @@ def set_chunks(
 
             lines = [g[1] for g in l_group]
 
-            print("Setting chunk with filepath: ", str(cov.filename))
+            # print("Setting chunk with filepath: ", str(cov.filename))
 
             chunk = TargetCode(
                 range=range,
@@ -84,21 +78,21 @@ async def get_tm_target_coverage(
     # First loop we find the total coverage of each test by itself
     only_module = [tm.name]
     # coverage with ONLY the current test module turned on
-    print("Running initial test ... ", tm.name)
+    log.info(f"Collecting target chunks for {tm.name}")
 
     # TODO: should be storing this as well
     module_cov = await run_test(
         repo_name,
         run_args,
+        # part1: collect the coverage of a single module only
         include_tests=only_module,
     )
+    log.info(f"BaseCov: {base_cov}")
+    log.info(f"ModuleCov: {module_cov.coverage}")
 
     module_diff = base_cov - module_cov.coverage
     total_cov_diff = module_diff.total_cov.covered
     if total_cov_diff > 0:
-        # part 2:
-        # holds the coverage diff of individual tests after they have
-        # been selectively turned off
         chg_cov = []
         coroutines = []
 
@@ -107,27 +101,34 @@ async def get_tm_target_coverage(
             task = run_test(
                 repo_name,
                 run_args,
+                # part 2:
+                # holds the coverage diff of individual tests after they have
+                # been selectively turned off
                 exclude_tests=[(test, tm.test_file.path)],
                 include_tests=only_module,
             )
             coroutines.append(task)
 
+        test_coverage = defaultdict(int)
         cov_res = await asyncio.gather(*[t for t in coroutines])
-        for test, cov_res in zip(tm.tests, cov_res):
-            print("Test results: ", cov_res.coverage.total_cov.covered)
-            print(
-                f"Module cov: {module_cov.coverage.total_cov.covered}, Single cov: {cov_res.coverage.total_cov.covered}"
-            )
+        for test, cov_res in zip(tm.tests, cov_res):                
+            # log.info(f"Test results: {cov_res.coverage.total_cov.covered}")
+            # log.info(
+            #     f"Module cov: {module_cov.coverage.total_cov.covered}, Single cov: {cov_res.coverage.total_cov.covered}"
+            # )
 
-            single_diff = (module_cov.coverage - cov_res.coverage).cov_list
-            for c in single_diff:
-                logger.info(
-                    f"Changed coverage from deleting {test.name}:\n {c.__str__()}"
-                )
+            # part 3: we subtract the module from the 
+            single_diff: TestCoverage = module_cov.coverage - cov_res.coverage
+            test_coverage[test.name] += single_diff.total_cov.covered
 
             # dont think we actually need this here .. confirm
-            chg_cov.extend(single_diff)
+            chg_cov.extend(single_diff.cov_list)
 
+        # NEWTODO: potentially we should store this on a TestModel object
+        # although we would first have to create that ...
+        for test, coverage in test_coverage.items():
+            log.info(f"{test}:{tm.name} covered by {coverage} lines")
+              
         # re-init the chunks according to the aggregated individual test coverages
         chunks = set_chunks(
             chg_cov,
@@ -137,7 +138,7 @@ async def get_tm_target_coverage(
 
     # Find out what's the reason for the missed tests
     else:
-        logger.info(f"No coverage difference found for {tm.name}")
+        log.info(f"No coverage difference found for {tm.name}")
         return []
 
     return chunks

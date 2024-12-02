@@ -65,7 +65,7 @@ def get_tms_by_names(
     Query by name and return all if no names are provided
     """
     if tm_names == []:
-        return get_all_tms(db_session=db_session, repo_id=repo_id)
+        return get_all_tms(db_session=db_session, repo_id=repo_id, n=None)
 
     query = db_session.query(TestModuleModel).filter(TestModuleModel.repo_id == repo_id)
     if tm_names:
@@ -84,36 +84,26 @@ def update_tm(*, db_session: Session, tm_model: TestModuleModel):
     return tm_model
 
 
-def get_all_tms(*, db_session: Session, repo_id: str) -> List[TestModuleModel]:
-    """
-    Query all TMs for a repo
-    """
-    return (
-        db_session.query(TestModuleModel)
-        .filter(TestModuleModel.repo_id == repo_id)
-        .all()
-    )
-
-
 def get_tms_by_filename(
     *, db_session: Session, repo_id: str, src_file: str
 ) -> List[TestModuleModel]:
     """
     Query all TMs for a repo
     """
-    all_tms = get_all_tms(db_session=db_session, repo_id=repo_id)
+    all_tms = get_all_tms(db_session=db_session, repo_id=repo_id, n=None)
     return [tm for tm in all_tms if src_file in tm.get_covered_files()]
 
 
 # TODO: need to figure out when to set this flag to False
-def get_all_tms_sorted(
-    *, db_session: Session, repo_id: str, src_repo: SourceRepo, n: int = 2
+def get_all_tms(
+    *, db_session: Session, repo_id: str, n: int = 2
 ) -> List[TestModuleModel]:
     """
     Query all TMs for a repo
     """
-    all_tms = get_all_tms(db_session=db_session, repo_id=repo_id)
-    sorted_tms = sorted(all_tms, key=lambda tm: tm.agg_score(src_repo), reverse=True)
+    all_tms = db_session.query(TestModuleModel).filter(TestModuleModel.repo_id == repo_id)
+    # sort by id to get deterministic ordering
+    sorted_tms = sorted(all_tms, key=lambda tm: tm.id, reverse=True)
     select_tms = sorted_tms[:n]
 
     # update auto_gen flag on TMs

@@ -34,6 +34,10 @@ class AugmentClassWithCtxtStrat(AugmentTestStrategy):
                 testgen_logger.warn(f"File {fp} too large to fit in prompt")
                 continue
 
+        if not self.test_module.targeted_files():
+            testgen_logger.warn(
+                f"No src files targeted by {self.test_module.name} found")
+
         return prompt.get_prompt()
 
     def get_test_code(self, test_file, nodes):
