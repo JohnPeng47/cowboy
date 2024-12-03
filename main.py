@@ -17,8 +17,6 @@ from fastapi.responses import HTMLResponse, JSONResponse
 
 import uvicorn
 from logging import getLogger, Filter
-from src.logger import configure_uvicorn_logger
-from src.auth.service import get_current_user
 
 from src.queue.core import TaskQueue
 from src.auth.views import auth_router
@@ -30,26 +28,23 @@ from src.target_code.views import tgtcode_router
 from src.experiments.views import exp_router
 from src.health.views import health_router
 from src.exceptions import CowboyRunTimeException
-from src.database.core import engine
 
 from src.extensions import init_sentry
 from src.config import PORT
 
 import uuid
 
+from src.sync_repos import start_sync_thread
+from src.database.core import engine
 
-# import logfire
+# NEWTODO: this very likely gonna be broken when we start running multiple worker
+# threads in uvicorn since each thread will get its own copy.. which should actually 
+# be fine since we just issue a new authentication request
+# global var token_registry
+from src.token_registry import token_registry
+
 
 log = getLogger(__name__)
-
-init_sentry()
-
-
-# def disable_uvicorn_logging():
-#     uvicorn_error = logging.getLogger("uvicorn.error")
-#     uvicorn_error.disabled = True
-#     uvicorn_access = logging.getLogger("uvicorn.access")
-#     uvicorn_access.disabled = True
 
 
 async def not_found(request, exc):
@@ -59,219 +54,91 @@ async def not_found(request, exc):
     )
 
 
-exception_handlers = {404: not_found}
-
-
-app = FastAPI(exception_handlers=exception_handlers, openapi_url="/docs/openapi.json")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# def get_path_params_from_request(request: Request) -> str:
-#     path_params = {}
-#     for r in api_router.routes:
-#         path_regex, path_format, param_converters = compile_path(r.path)
-#         path = request["path"].removeprefix(
-#             "/api/v1"
-#         )  # remove the /api/v1 for matching
-#         match = path_regex.match(path)
-#         if match:
-#             path_params = match.groupdict()
-#     return path_params
-
-
-def get_path_template(request: Request) -> str:
-    if hasattr(request, "path"):
-        return ",".join(request.path.split("/")[1:])
-    return ".".join(request.url.path.split("/")[1:])
-
-
-REQUEST_ID_CTX_KEY: Final[str] = "request_id"
-_request_id_ctx_var: ContextVar[Optional[str]] = ContextVar(
-    REQUEST_ID_CTX_KEY, default=None
-)
-
-
-def get_request_id() -> Optional[str]:
-    return _request_id_ctx_var.get()
-
-
-# these paths do not require DB
-NO_DB_PATHS = ["/task/get"]
-
-
 class ExceptionMiddleware(BaseHTTPMiddleware):
-    async def dispatch(
-        self, request: Request, call_next: RequestResponseEndpoint
-    ) -> StreamingResponse:
-        try:
-            response = await call_next(request)
-        except ValidationError as e:
-            log.exception(e)
-            response = JSONResponse(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                content={"detail": e.errors(), "error": True},
-            )
-        except ValueError as e:
-            log.exception(e)
-            response = JSONResponse(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                content={
-                    "detail": [
-                        {"msg": "Unknown", "loc": ["Unknown"], "type": "Unknown"}
-                    ],
-                    "error": True,
-                },
-            )
-        except CowboyRunTimeException as e:
-            log.exception(e)
-            response = JSONResponse(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                content={
-                    "detail": [{"msg": f"Runtime error: {e.message}"}],
-                    "error_type": "CowboyRunTimeException",
-                    "error": True,
-                },
-            )
-        except Exception as e:
-            log.exception(e)
-            response = JSONResponse(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                content={
-                    "detail": [
-                        {"msg": "Unknown", "loc": ["Unknown"], "type": "Unknown"}
-                    ],
-                    "error": True,
-                },
-            )
-
-        return response
-
-
-token_registry = set()
-
-
-class DBMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        # request_id = str(uuid1())
-
-        # we create a per-request id such that we can ensure that our session is scoped for a particular request.
-        # see: https://github.com/tiangolo/fastapi/issues/726
-        # ctx_token = _request_id_ctx_var.set(request_id)
-        # path_params = get_path_params_from_request(request)
-
-        # # if this call is organization specific set the correct search path
-        # organization_slug = path_params.get("organization", "default")
-        # request.state.organization = organization_slug
-
-        # # Find out more about
-        # schema = f"dispatch_organization_{organization_slug}"
-        # # validate slug exists
-        # schema_names = inspect(engine).get_schema_names()
-        # if schema in schema_names:
-        #     # add correct schema mapping depending on the request
-        #     schema_engine = engine.execution_options(
-        #         schema_translate_map={
-        #             None: schema,
-        #         }
-        #     )
-        # else:
-        #     return JSONResponse(
-        #         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        #         content={"detail": [{"msg": f"Unknown database schema name: {schema}"}]},
-        #     )
-
         try:
-            request.state.session_id = str(uuid.uuid4())
-            # this is a very janky implementation to handle the fact that assigning a db session
-            # to every request blows up our db connection pool
-            task_auth_token = request.headers.get("x-task-auth", None)
-            if not task_auth_token or not task_auth_token in token_registry:
-                session = sessionmaker(bind=engine)
-                request.state.db = session()
-                request.state.db.id = str(uuid.uuid4())
-
             response = await call_next(request)
+            return response
+        except CowboyRunTimeException as e:
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content={"detail": [{"msg": str(e)}]},
+            )
+        except ValidationError as e:
+            return JSONResponse(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                content={"detail": e.errors()},
+            )
         except Exception as e:
-            raise e from None
-        finally:
-            db = getattr(request.state, "db", None)
-            if db:
-                db.close()
-
-        # _request_id_ctx_var.reset(ctx_token)
-        return response
+            log.exception(f"Unexpected error: {str(e)}")
+            return JSONResponse(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                content={"detail": [{"msg": "Internal server error"}]},
+            )
 
 
-# class LogfireLogUser(BaseHTTPMiddleware):
-#     async def dispatch(self, request: Request, call_next):
-#         try:
-#             # we have to skip requests with x-task-auth or else logfire will log an exception for this
-#             # request when it tries to acces request.state.db
-#             if not request.headers.get("x-task-auth", None):
-#                 with logfire.span("request"):
-#                     user = get_current_user(request)
-#                     logfire.info("{user}", user=user.email)
-#         except AttributeError as e:
-#             pass
-#         finally:
-#             response = await call_next(request)
-#             return response
+def create_app(task_queue: TaskQueue, engine) -> FastAPI:
+    exception_handlers = {404: not_found}
+    app = FastAPI(exception_handlers=exception_handlers, openapi_url="/docs/openapi.json")
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    class DBMiddleware(BaseHTTPMiddleware):
+        async def dispatch(self, request: Request, call_next):
+            try:
+                request.state.session_id = str(uuid.uuid4())
+                task_auth_token = request.headers.get("x-task-auth", None)
+                if not task_auth_token or not task_auth_token in token_registry:
+                    session = sessionmaker(bind=engine)
+                    request.state.db = session()
+                    request.state.db.id = str(uuid.uuid4())
+
+                response = await call_next(request)
+            except Exception as e:
+                raise e from None
+            finally:
+                db = getattr(request.state, "db", None)
+                if db:
+                    db.close()
+            return response
+
+    class AddTaskQueueMiddleware(BaseHTTPMiddleware):
+        async def dispatch(
+            self, request: Request, call_next: RequestResponseEndpoint
+        ) -> Response:
+            request.state.task_queue = task_queue
+            response = await call_next(request)
+            return response
+
+    app.add_middleware(ExceptionMiddleware)
+    app.add_middleware(DBMiddleware)
+    app.add_middleware(AddTaskQueueMiddleware)
+
+    app.include_router(auth_router)
+    app.include_router(repo_router)
+    app.include_router(tm_router)
+    app.include_router(task_queue_router)
+    app.include_router(test_gen_router)
+    app.include_router(tgtcode_router)
+    app.include_router(exp_router)
+    app.include_router(health_router)
+
+    return app
 
 
-task_queue = TaskQueue()
+def create_server(app: FastAPI, host, port, workers = 2):
+    # init_sentry()
 
-
-class AddTaskQueueMiddleware(BaseHTTPMiddleware):
-    async def dispatch(
-        self, request: Request, call_next: RequestResponseEndpoint
-    ) -> Response:
-        request.state.task_queue = task_queue
-        response = await call_next(request)
-        return response
-
-
-# app.add_middleware(LogfireLogUser)
-app.add_middleware(ExceptionMiddleware)
-app.add_middleware(DBMiddleware)
-app.add_middleware(AddTaskQueueMiddleware)
-
-app.include_router(auth_router)
-app.include_router(repo_router)
-app.include_router(tm_router)
-app.include_router(task_queue_router)
-app.include_router(test_gen_router)
-app.include_router(tgtcode_router)
-app.include_router(exp_router)
-app.include_router(health_router)
-
-# logfire.configure(console=False)
-# logfire.instrument_fastapi(app, excluded_urls=["/task/get"])
-
-
-if __name__ == "__main__":
-    import argparse
-    from src.sync_repos import start_sync_thread
-
-    class CustomFilter(Filter):
-        def filter(self, record):
-            return "GET /task/get" not in record.getMessage()
-
-    # Get the uvicorn access logger
-    uvicorn_logger = getLogger("uvicorn.access")
-    uvicorn_logger.addFilter(CustomFilter())
-    
     # start the repo sync thread
     # Session = sessionmaker(bind=engine)
     # db_session = Session()
     # start_sync_thread(db_session, task_queue)
-
-    # logfire.configure()
 
     class CustomFilter(Filter):
         def filter(self, record):
@@ -282,15 +149,20 @@ if __name__ == "__main__":
         uvicorn_logger = getLogger("uvicorn.access")
         uvicorn_logger.addFilter(CustomFilter())
 
+    app = create_app(TaskQueue(), engine)
+
     # Configure the logging when the worker starts
     config = uvicorn.Config(
-        "main:app",
-        host="0.0.0.0",
-        port=int(PORT),
-        workers=2,
-        reload_excludes=["./repos"],
+        app,
+        host=host, 
+        port=port,
+        workers=workers,
         callback_notify=configure_worker_logger # This will run for each worker
     )
-    
     server = uvicorn.Server(config)
     server.run()
+    
+
+if __name__ == "__main__":
+    app = create_app(TaskQueue(), engine)
+    create_server(app, "0.0.0.0", int(PORT))

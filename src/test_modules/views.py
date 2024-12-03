@@ -11,6 +11,7 @@ from src.test_gen.service import select_tms
 from src.models import HTTPSuccess
 from src.tasks.create_tgt_coverage import create_tgt_coverage
 from src.runner.models import ClientRunnerException
+from src.config import run_test
 
 from .models import BuildMappingRequest, TestModuleReponse
 from .service import get_all_tms
@@ -39,7 +40,7 @@ async def get_tm_target_coverage(
     tm_models = select_tms(
         db_session=db_session, repo_id=repo.id, request=request, src_repo=src_repo
     )
-    tm_models = [tm_model for tm_model in tm_models if not tm_model.target_chunks]
+    # tm_models = [tm_model for tm_model in tm_models if not tm_model.target_chunks]
 
     try:
         await create_tgt_coverage(
@@ -47,6 +48,7 @@ async def get_tm_target_coverage(
             task_queue=task_queue,
             repo=repo,
             tm_models=tm_models,
+            run_test=run_test,
             overwrite=request.overwrite,
         )
         return HTTPSuccess()

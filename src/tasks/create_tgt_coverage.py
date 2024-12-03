@@ -7,25 +7,21 @@ from src.tasks.get_baseline_parallel import get_tm_target_coverage
 
 from src.queue.core import TaskQueue
 from src.repo.models import RepoConfig
-from src.auth.models import CowboyUser
 from src.test_modules.models import TestModuleModel
 from src.ast.models import NodeModel
 from src.coverage.models import CoverageModel, coverage_to_model 
 
-from src.runner.service import run_test, RunServiceArgs
-from src.ast.service import create_node, create_or_update_node
-from src.test_modules.service import get_tms_by_names, update_tm
-from src.target_code.service import create_target_code
+from src.runner.service import RunServiceArgs
 from src.target_code.models import TargetCodeModel
-from src.coverage.service import get_cov_by_filename, upsert_coverage
 from src.utils import async_timed
+from src.config import run_test
 
 from src.logger import buildtm_logger as log
 
 from sqlalchemy.orm import Session
 
 from pathlib import Path
-from typing import List
+from typing import List, Callable
 
 
 def tgtcode_to_model(
@@ -76,6 +72,7 @@ async def create_tgt_coverage(
     task_queue: TaskQueue,
     repo: RepoConfig,
     tm_models: List[TestModuleModel],
+    run_test: Callable,
     overwrite: bool = True,
 ):
     """
@@ -110,12 +107,13 @@ async def create_tgt_coverage(
 
         # generate src th 
         tgt_chunks = await get_tm_target_coverage(
-            repo.repo_name, src_repo, tm, base_cov, run_args
+            repo.repo_name, src_repo, tm, base_cov, run_test, run_args
         )
         target_models = []
         for tc in tgt_chunks:
             file_cov = base_cov.get_file_cov(tc.filepath)
             # NEWDESIGN: we are okay with generating new coverage model here for now
+            # UPDATE: actually there is issue with null ID here so coverage model is not being created properly
             file_cov_model = coverage_to_model(file_cov)
             target_models.append(tgtcode_to_model(tc, file_cov_model, repo.id, tm_model))
 

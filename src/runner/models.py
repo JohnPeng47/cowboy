@@ -4,7 +4,9 @@ from cowboy_lib.api.runner.shared import TaskResult
 
 from fastapi import HTTPException
 from pydantic import BaseModel, Field, validator
+from dataclasses import dataclass
 
+from src.queue.core import TaskQueue
 
 class ClientRunnerException(HTTPException):
     def __init__(self, msg):
@@ -26,3 +28,8 @@ def json_to_coverage_result(res: TaskResult):
     cov_results.failed = res.failed
 
     return cov_results
+
+@dataclass
+class RunServiceArgs:
+    user_id: int
+    task_queue: TaskQueue

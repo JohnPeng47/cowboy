@@ -1,7 +1,6 @@
 from cowboy_lib.repo.repository import PatchFile
 from cowboy_lib.coverage import CoverageResult
 from cowboy_lib.ast.code import Function
-
 from cowboy_lib.api.runner.shared import (
     Task,
     TaskType,
@@ -11,17 +10,10 @@ from cowboy_lib.api.runner.shared import (
 from src.queue.service import enqueue_task_and_wait
 from src.queue.core import TaskQueue
 
-from .models import json_to_coverage_result
+from .models import RunServiceArgs, json_to_coverage_result
 
 from typing import List, Tuple
 from dataclasses import dataclass
-
-
-@dataclass
-class RunServiceArgs:
-    user_id: int
-    task_queue: TaskQueue
-
 
 async def run_test(
     repo_name: str,

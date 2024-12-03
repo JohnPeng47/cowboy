@@ -6,7 +6,7 @@ from src.test_modules.models import TestModule
 from typing import List
 
 
-def iter_test_modules(src_repo: SourceRepo) -> List[TestModule]:
+def iter_test_modules(src_repo: SourceRepo, filter_fn=None) -> List[TestModule]:
     """
     Generator for TestModules
     TestModules can be either be:
@@ -14,6 +14,10 @@ def iter_test_modules(src_repo: SourceRepo) -> List[TestModule]:
     2. All the functions inside a class inside a TestFile
     3. Some of the individual functions inside a TestFile
     4. Some of the functions inside a class inside a TestFile
+    
+    Args:
+        src_repo: Source repository to scan for test modules
+        filter_fn: Optional function to filter test modules, takes TestModule and returns bool
     """
     test_modules: List[TestModule] = []
     for test_file in src_repo.test_files:
@@ -37,5 +41,8 @@ def iter_test_modules(src_repo: SourceRepo) -> List[TestModule]:
     #         if name_counter[tm.name] > 1:
     #             tm.name = get_new_name(tm.name, tm.test_file.path)
     #             name_counter = Counter([tm.name for tm in test_modules])
+
+    if filter_fn:
+        test_modules = [tm for tm in test_modules if filter_fn(tm)]
 
     return test_modules

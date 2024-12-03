@@ -4,10 +4,10 @@ from cowboy_lib.test_modules.test_module import TestModule, TargetCode
 from cowboy_lib.utils import testfiles_in_coverage
 
 from src.queue.core import TaskQueue
-from src.runner.service import run_test, RunServiceArgs
+from src.runner.service import RunServiceArgs
 from src.logger import buildtm_logger as log
 
-from typing import List, Tuple
+from typing import List, Tuple, Callable
 from pathlib import Path
 import asyncio
 from collections import defaultdict
@@ -61,6 +61,7 @@ async def get_tm_target_coverage(
     src_repo: SourceRepo,
     tm: TestModule,
     base_cov: TestCoverage,
+    run_test: Callable,
     run_args: RunServiceArgs,
 ) -> List[TargetCode]:
     """

@@ -124,7 +124,7 @@ def get_queue(request: Request):
 
 
 def get_token_registry(request: Request):
-    from main import token_registry
+    from src.token_registry import token_registry
 
     return token_registry
 

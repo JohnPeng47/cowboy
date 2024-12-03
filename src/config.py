@@ -1,5 +1,4 @@
 from starlette.config import Config
-
 from enum import Enum
 
 config = Config(".env")
@@ -32,6 +31,13 @@ LLM_RETRIES = 3
 AUTO_GEN_SIZE = 7
 MAX_CTXT_SIZE = 10000
 
+# Run test settings 
+RUN_TEST = "app"
+if RUN_TEST == "app":
+    from src.runner.service import run_test
+elif RUN_TEST == "test":
+    from src.runner.local.run_test import run_test
+TESTCONFIG_ROOT = "tests/configs"
 
 LOG_DIR = "log"
 REPOS_ROOT = "repos"
@@ -42,5 +48,4 @@ class Language(str, Enum):
     """
     Currently supported languages
     """
-
     python = "python"

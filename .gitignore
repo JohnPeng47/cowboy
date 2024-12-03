@@ -64,3 +64,5 @@ log/*.log
 
 alembic.ini
 run
+
+tests/test_repos/*
