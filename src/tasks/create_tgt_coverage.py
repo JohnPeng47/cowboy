@@ -14,7 +14,7 @@ from src.coverage.models import CoverageModel, coverage_to_model
 from src.runner.service import RunServiceArgs
 from src.target_code.models import TargetCodeModel
 from src.utils import async_timed
-from src.config import run_test
+from src.runtest_conf import run_test
 
 from src.logger import buildtm_logger as log
 

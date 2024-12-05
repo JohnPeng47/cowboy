@@ -6,6 +6,7 @@ from cowboy_lib.ast.code import Function
 from ..models import RunServiceArgs 
 from .python import PytestDiffRunner
 from .models import RepoConfig
+from .cache import cache_test_run
 
 from src.config import TESTCONFIG_ROOT
 from pathlib import Path
@@ -18,6 +19,7 @@ def get_repo_config(repo_name: str) -> RepoConfig:
         return RepoConfig(**json.load(f))   
 
 
+# @cache_test_run
 async def run_test(
     repo_name: str,
     service_args: RunServiceArgs, # dont actually need this argument here, just for compatability

@@ -55,6 +55,12 @@ def set_chunks(
 
     return chunks
 
+def compare(base_cov: TestCoverage, module: TestCoverage):
+    for cov1, cov2 in zip(base_cov.cov_list, module.cov_list):
+        print(cov1.filename, cov2.filename)
+        if cov1.stmts != cov2.stmts:
+            print("Different stmts ")
+
 
 async def get_tm_target_coverage(
     repo_name: str,

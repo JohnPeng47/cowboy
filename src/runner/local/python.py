@@ -131,12 +131,12 @@ class PytestDiffRunner:
         self.interpreter = Path(repo_conf.python_conf.interp)
         self.python_path = Path(repo_conf.python_conf.pythonpath)
 
-        if not self.interpreter.exists():
-            raise RunnerError(f"Runtime path {self.interpreter} does not exist")
+        # if not self.interpreter.exists():
+        #     raise RunnerError(f"Runtime path {self.interpreter} does not exist")
 
-        missing = self.check_missing_deps(self.interpreter)
-        if missing:
-            raise RunnerError(f"{missing} for {self.interpreter}")
+        # missing = self.check_missing_deps(self.interpreter)
+        # if missing:
+        #     raise RunnerError(f"{missing} for {self.interpreter}")
 
         self.cov_folders = [Path(p) for p in repo_conf.python_conf.cov_folders]
         cloned_folders = [Path(p) for p in repo_conf.cloned_folders]
@@ -228,37 +228,46 @@ class PytestDiffRunner:
         return "-k " + arg_str
 
     def _construct_cmd(
-        self, repo_path, selected_tests: str = "", deselected_tests: str = ""
+        self, 
+        repo_path: Path,  
+        selected_tests: str, 
+        deselected_tests: str,
+        custom_cmd: str
     ):
         """
         Constructs the cmdstr for running pytest
         """
-
-        cmd = [
+        cd_cmd = [
             "cd",
             str(repo_path),
-            "&&",
-            str(self.interpreter),
-            "-m",
-            "pytest",
-            str(self.test_folder),
-            "--tb",
-            "short",
-            selected_tests,
-            deselected_tests,
-            # "-v",
-            "--color",
-            "no",
-            f"--cov={'--cov='.join([str(folder) + ' ' for folder in self.cov_folders])}",
-            "--cov-report",
-            "json",
-            # "--cov-report",
-            # "term",
-            "--continue-on-collection-errors",
-            "--disable-warnings",
         ]
 
-        return " ".join(cmd)
+        if custom_cmd:
+            cmd = custom_cmd
+        else:
+            cmd = [
+                str(self.interpreter),
+                "-m",
+                "pytest",
+                str(self.test_folder),
+                "--tb",
+                "short",
+                selected_tests,
+                deselected_tests,
+                # "-v",
+                "--color",
+                "no",
+                f"--cov={'--cov='.join([str(folder) + ' ' for folder in self.cov_folders])}",
+                "--cov-report",
+                "json",
+                # "--cov-report",
+                # "term",
+                "--continue-on-collection-errors",
+                "--disable-warnings",
+            ]
+
+        print("CMDER:: ", " ".join(cd_cmd + ["&&"] + cmd))
+        return " ".join(cd_cmd + ["&&"] + cmd)
 
     def _stream_and_capture_output(self, process: subprocess.Popen) -> Tuple[str, str]:
         """
@@ -314,7 +323,8 @@ class PytestDiffRunner:
         
     def run_testsuite(self, 
                       args: RunTestTaskArgs, 
-                      stream: bool = False) -> Tuple[CoverageResult, str, str]:
+                      stream: bool = False,
+                      custom_cmd: str = "") -> Tuple[CoverageResult, str, str]:
         with self.test_repos.acquire_one() as repo_inst:
             git_repo: GitRepo = repo_inst
 
@@ -335,7 +345,7 @@ class PytestDiffRunner:
             )
             include_tests = self._get_include_tests_arg_str(include_tests)
             cmd_str = self._construct_cmd(
-                git_repo.repo_folder, include_tests, exclude_tests
+                git_repo.repo_folder, include_tests, exclude_tests, custom_cmd
             )
 
             log.info(f"Running with command: {cmd_str}")

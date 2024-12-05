@@ -33,10 +33,6 @@ MAX_CTXT_SIZE = 10000
 
 # Run test settings 
 RUN_TEST = "app"
-if RUN_TEST == "app":
-    from src.runner.service import run_test
-elif RUN_TEST == "test":
-    from src.runner.local.run_test import run_test
 TESTCONFIG_ROOT = "tests/configs"
 
 LOG_DIR = "log"

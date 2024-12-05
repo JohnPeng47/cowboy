@@ -33,3 +33,6 @@ def json_to_coverage_result(res: TaskResult):
 class RunServiceArgs:
     user_id: int
     task_queue: TaskQueue
+    # NEWTODO: not sure if we want to stick this here will probably move it somewhere
+    # else
+    custom_cmd: str

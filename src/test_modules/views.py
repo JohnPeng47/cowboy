@@ -11,7 +11,7 @@ from src.test_gen.service import select_tms
 from src.models import HTTPSuccess
 from src.tasks.create_tgt_coverage import create_tgt_coverage
 from src.runner.models import ClientRunnerException
-from src.config import run_test
+from src.runtest_conf import run_test
 
 from .models import BuildMappingRequest, TestModuleReponse
 from .service import get_all_tms
