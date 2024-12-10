@@ -79,8 +79,8 @@ async def get_tm_target_coverage(
     The diff measures how well we are able to supplant the coverage of the deleted methods
     """
 
-    if testfiles_in_coverage(base_cov, src_repo):
-        raise TestInCoverageException
+    # if testfiles_in_coverage(base_cov, src_repo):
+    #     raise TestInCoverageException
 
     # First loop we find the total coverage of each test by itself
     only_module = [tm.name]
@@ -118,14 +118,12 @@ async def get_tm_target_coverage(
 
         test_coverage = defaultdict(int)
         cov_res = await asyncio.gather(*[t for t in coroutines])
-        for test, cov_res in zip(tm.tests, cov_res):                
-            # log.info(f"Test results: {cov_res.coverage.total_cov.covered}")
-            # log.info(
-            #     f"Module cov: {module_cov.coverage.total_cov.covered}, Single cov: {cov_res.coverage.total_cov.covered}"
-            # )
-
+        for test, test_cov in zip(tm.tests, cov_res):                
+            print("ModuleCov: ", module_cov.coverage)
+            print("Test cov: ", test_cov.coverage)
+            
             # part 3: we subtract the module from the 
-            single_diff: TestCoverage = module_cov.coverage - cov_res.coverage
+            single_diff: TestCoverage = module_cov.coverage - test_cov.coverage
             test_coverage[test.name] += single_diff.total_cov.covered
 
             # dont think we actually need this here .. confirm
@@ -134,7 +132,11 @@ async def get_tm_target_coverage(
         # NEWTODO: potentially we should store this on a TestModel object
         # although we would first have to create that ...
         for test, coverage in test_coverage.items():
-            log.info(f"{test}:{tm.name} covered by {coverage} lines")
+            log.info(f"{test} covered by {coverage} lines")
+
+            # TBH, not sure why this happens
+            if coverage < 0:
+                log.warn(f"Coverage for {test} is negative: {coverage}")
               
         # re-init the chunks according to the aggregated individual test coverages
         chunks = set_chunks(

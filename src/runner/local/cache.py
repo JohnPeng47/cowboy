@@ -34,6 +34,13 @@ def compute_hash(repo_name: str, exclude_tests: list, include_tests: list, patch
         "include_tests": include_tests,
         "patch": patch_file.patch if patch_file else None
     }
+
+    # janky, idk why sometimes I pass string and sometimes Function
+    if hash_input["include_tests"] and not isinstance(hash_input["include_tests"][0], str):
+        hash_input["include_tests"] = [func.to_json() for func in hash_input["include_tests"]]
+    if hash_input["exclude_tests"] and not isinstance(hash_input["exclude_tests"][0][0], str):
+        hash_input["exclude_tests"] = [(func[0].to_json(), str(func[1])) for func in hash_input["exclude_tests"]]
+
     hash_str = json.dumps(hash_input, sort_keys=True)
     return hashlib.sha256(hash_str.encode()).hexdigest()
 

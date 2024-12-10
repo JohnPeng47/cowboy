@@ -11,18 +11,25 @@ async def test_get_coverage():
     repo_config = get_repo_config(repo_name)
     repo_path = Path(repo_config.source_folder)
     src_repo = SourceRepo(repo_path)
-    tm = iter_test_modules(src_repo, lambda tm: tm.name == "TestGithubAppInstallationUsage")[0]
+
+    tms = iter_test_modules(src_repo, lambda tm: tm.name in ["RepoPullList",
+                                                              "TestRepositoryPermissionsService", 
+                                                              "RepoCommitList", 
+                                                              "BranchViewSetTests"])
 
     base_cov = await run_test(repo_name, None)
-    chunks = await get_tm_target_coverage(
-        repo_name=repo_name,
-        src_repo=src_repo,
-        tm=tm,
-        base_cov=base_cov.get_coverage(),
-        run_test=run_test,
-        run_args=None
-    )
-    
+    print("BaseCov: ", base_cov.get_coverage())
+
+    for tm in tms:
+        chunks = await get_tm_target_coverage(
+            repo_name=repo_name,
+            src_repo=src_repo,
+            tm=tm,
+            base_cov=base_cov.get_coverage(),
+            run_test=run_test,
+            run_args=None
+        )
+        
     return chunks
 
 if __name__ == "__main__":

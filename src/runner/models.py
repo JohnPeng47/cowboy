@@ -35,4 +35,4 @@ class RunServiceArgs:
     task_queue: TaskQueue
     # NEWTODO: not sure if we want to stick this here will probably move it somewhere
     # else
-    custom_cmd: str
+    # custom_cmd: str

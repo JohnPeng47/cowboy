@@ -19,7 +19,7 @@ def get_repo_config(repo_name: str) -> RepoConfig:
         return RepoConfig(**json.load(f))   
 
 
-# @cache_test_run
+@cache_test_run
 async def run_test(
     repo_name: str,
     service_args: RunServiceArgs, # dont actually need this argument here, just for compatability
@@ -31,7 +31,7 @@ async def run_test(
     args = RunTestTaskArgs(
         repo_name=repo_name,
         patch_file=patch_file,
-        exclude_tests=[((f.name, f.is_meth()), path) for f, path in exclude_tests],
+        exclude_tests=exclude_tests,
         include_tests=include_tests,
     )
     runner = PytestDiffRunner(repo_config)
