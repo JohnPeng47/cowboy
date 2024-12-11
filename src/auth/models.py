@@ -22,7 +22,6 @@ from sqlalchemy.orm import relationship
 from typing import List
 from datetime import datetime, timedelta
 
-
 def generate_token(email):
     now = datetime.utcnow()
     exp = (now + timedelta(seconds=COWBOY_JWT_EXP)).timestamp()
@@ -52,7 +51,6 @@ def hash_password(password: str):
     pw = bytes(password, "utf-8")
     salt = bcrypt.gensalt()
     return bcrypt.hashpw(pw, salt)
-
 
 class CowboyUser(Base, TimeStampMixin):
     __tablename__ = "cowboy_user"

@@ -12,7 +12,7 @@ from starlette.status import HTTP_401_UNAUTHORIZED
 from src.config import COWBOY_JWT_SECRET
 from src.database.core import DBNotSetException, get_db
 
-from .models import generate_token
+from .models import generate_token, generate_password, hash_password
 
 
 log = logging.getLogger(__name__)
@@ -55,6 +55,18 @@ def create(*, db_session, user_in: UserRegister | UserCreate) -> CowboyUser:
 
     return user
 
+def get_or_create_admin_user(*, db_session):
+    print("Session @ 1: ", id(db_session))
+    admin = get_by_email(db_session=db_session, email="admin@admin.com")
+    if not admin:
+        admin_in = CowboyUser(
+            email="admin@admin.com",
+            password=hash_password(generate_password()),
+        )
+        db_session.add(admin_in)
+        db_session.commit()
+
+    return admin
 
 def get_user_token(*, db_session, user_id):
     user = get(db_session=db_session, user_id=user_id)

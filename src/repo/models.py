@@ -7,6 +7,7 @@ from pydantic import Field
 from src.models import CowboyBase
 from src.database.core import Base
 from src.config import Language
+from src.stats.models import RepoStats
 
 from typing import List, Any, Dict, Optional
 
@@ -43,7 +44,7 @@ class RepoConfig(Base):
     cov_list = relationship(
         "CoverageModel", backref="repo_config", cascade="all, delete-orphan"
     )
-    stats = relationship("RepoStats", uselist=False, cascade="all, delete-orphan")
+    stats = relationship(RepoStats, uselist=False, cascade="all, delete-orphan")
 
     def __init__(
         self,
@@ -53,10 +54,10 @@ class RepoConfig(Base):
         cloned_folders,
         python_conf,
         user_id,
-        remote,  # origin
-        main,
         language,
         is_experiment=False,
+        remote="origin",  # origin
+        main="main",
     ):
         self.repo_name = repo_name
         self.url = url

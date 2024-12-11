@@ -26,15 +26,17 @@ async def run_test(
     exclude_tests: List[Tuple[Function, str]] = [],
     include_tests: List[str] = [],
     patch_file: PatchFile = None,
+    stream: bool = False,
 ) -> CoverageResult:
+    print("wtf??")
     repo_config = get_repo_config(repo_name)
     args = RunTestTaskArgs(
         repo_name=repo_name,
         patch_file=patch_file,
         exclude_tests=exclude_tests,
-        include_tests=include_tests,
+    include_tests=include_tests,
     )
     runner = PytestDiffRunner(repo_config)
-    cov, _, _ = runner.run_testsuite(args)
+    cov, _, _ = runner.run_testsuite(args, stream=stream)
 
     return cov

@@ -1,16 +1,24 @@
 import sys
-from typing import List, Optional
+from typing import List, Optional, Dict
 from pathlib import Path
 from collections import defaultdict
+from sqlalchemy.orm import Session, sessionmaker
+
 
 from cowboy_lib.repo import SourceRepo
 from cowboy_lib.test_modules import TestModule
 from cowboy_lib.ast import NodeType
 
+from src.repo.models import RepoConfig
+from src.auth.service import get_or_create_admin_user
+from src.config import REPOS_ROOT
 from src.test_modules.iter_tms import iter_test_modules
 from src.database.core import engine
-from src.repo.service import create as create_repo
+from src.repo.service import get_or_create_local as get_or_create_repo
 from src.runner.local.run_test import get_repo_config, run_test
+
+# Create a session factory (similar to main.py)
+Session = sessionmaker(bind=engine)
 
 def num_delete(tm: TestModule, to_keep: int = 1, to_delete: int = 1) -> int:
     if to_keep and to_delete:
@@ -91,17 +99,30 @@ def neuter_tests(
     summary += f"Total failed: {failed_mod}"
     with open(base_path / "neuter_summary.txt", "w") as f:
         f.write(summary)
-    
+
+def get_or_create_repo_from_conf(repo_name: str) -> RepoConfig:
+    repo_conf = get_repo_config(repo_name)
+    with Session() as session:
+        user = get_or_create_admin_user(db_session=session)
+        repo = get_or_create_repo(db_session=session, 
+                               user_id=user.id,  
+                               repo_in=repo_conf, 
+                               task_queue=None)
+        session.commit()
+
+        return repo
 
 if __name__ == "__main__":
     import argparse
+    import asyncio
+
     parser = argparse.ArgumentParser(
         description="Neuter a repository by removing test functions while keeping a specified number"
     )
     parser.add_argument(
-        "repo_path",
+        "repo_name",
         type=str,
-        help="Path to the repository to neuter"
+        help="Name of the repo config file"
     )
     parser.add_argument(
         "--out-repo",
@@ -127,11 +148,8 @@ if __name__ == "__main__":
         help="Maximum total number of tests to delete across all modules",
         default=None
     )
-
     args = parser.parse_args()
-    repo = Path(args.repo_path)
-    if not repo.exists():
-        parser.error("Repository path does not exist")
+    repo = asyncio.run(get_or_create_repo_from_conf(args.repo_name))
 
     out_repo = Path(args.out_repo) if args.out_repo else None
     src_repo = SourceRepo(repo)

@@ -76,6 +76,7 @@ def cache_test_run(func):
         exclude_tests: list = [],
         include_tests: list = [],
         patch_file: Optional[PatchFile] = None,
+        stream = False,
     ) -> CoverageResult:
         init_cache()
         cache_key = compute_hash(repo_name, exclude_tests, include_tests, patch_file)
@@ -87,7 +88,7 @@ def cache_test_run(func):
             return cached_result
             
         # Run the actual function if not in cache
-        result = await func(repo_name, service_args, exclude_tests, include_tests, patch_file)
+        result = await func(repo_name, service_args, exclude_tests, include_tests, patch_file, stream)
         if not cached_result:
             print(f"Saving to cache: {(repo_name, exclude_tests, include_tests)}")
             save_cache(cache_key, result)
