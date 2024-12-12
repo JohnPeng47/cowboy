@@ -12,6 +12,9 @@ from pathlib import Path
 import asyncio
 from collections import defaultdict
 
+class BigDiff(Exception):
+    pass
+
 class TestInCoverageException(Exception):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -106,6 +109,7 @@ async def get_tm_target_coverage(
         chg_cov = []
         coroutines = []
 
+        # Think the high negatives fail at some edge case here
         for test in tm.tests:
             task = run_test(
                 repo_name,
@@ -132,8 +136,12 @@ async def get_tm_target_coverage(
             # part 3: we subtract the module from the 
             single_diff: TestCoverage = module_cov.get_coverage() - test_cov.get_coverage()
             if single_diff.total_cov.covered > 0:
+                if single_diff.total_cov.covered > 1000: # BIG DIFF
+                    raise Exception("BIG DIFF")
+                
                 test_coverage[test.name] = single_diff.total_cov.covered
                 total_covered += single_diff.total_cov.covered
+                
                 log.warn(f"Coverage for {test} is positive: {single_diff.total_cov.covered}")
 
                 chg_cov.extend(single_diff.cov_list)

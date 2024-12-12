@@ -48,7 +48,6 @@ async def eval_augment(data: Dict):
 async def eval_dataset(repo_name: str, dataset_name: str):
     # dataset = init_dataset(project="Cowboy", name=dataset_name, api_key=BRAINTRUST_API_KEY)
     dataset = [datum.to_json() for datum in read_rows(repo_name)]
-    print(dataset[0].keys())
     await EvalAsync(
         repo_name,
         dataset,

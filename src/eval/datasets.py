@@ -8,6 +8,7 @@ from cowboy_lib.test_modules import TestModule
 from typing import Dict
 
 from pydantic import BaseModel
+from src.logger import master_logger as log
 
 DATASET_ROOT = Path(EVAL_DATA_ROOT)
 
@@ -15,7 +16,7 @@ DATASET_ROOT = Path(EVAL_DATA_ROOT)
 class TestModuleRow(BaseModel):
     tm: TestModule
     file_content: str
-    module_cov: TestCoverage
+    module_cov: TestCoverage # THEE
     base_cov: TestCoverage
     repo_config: Dict
     expected: int = 0
@@ -66,18 +67,24 @@ def persist_rows(row: TestModuleRow, repo_name: str):
 
     # Write row data to file
     file_path = repo_dir / f"{row.tm.name}.json"
+    log.info(f"Writing row data to {file_path}")
     with open(file_path, "w") as f:
         json.dump(row.to_json(), f, indent=2)
+    log.info(f"Successfully wrote row data for {row.tm.name}")
 
 def read_rows(repo_name: str, limit=5) -> list[TestModuleRow]:
     repo_dir = DATASET_ROOT / repo_name
     if not repo_dir.exists():
+        log.warning(f"Dataset directory {repo_dir} does not exist")
         return []
 
     rows = []
+    log.info(f"Reading up to {limit} rows from {repo_dir}")
     for file_path in list(repo_dir.glob("*.json"))[:limit]:
+        log.debug(f"Reading row from {file_path}")
         with open(file_path) as f:
             data = json.load(f)
             rows.append(TestModuleRow.from_json(data))
 
+    log.info(f"Successfully read {len(rows)} rows from {repo_dir}")
     return rows

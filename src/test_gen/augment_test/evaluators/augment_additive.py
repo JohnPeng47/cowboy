@@ -95,6 +95,7 @@ class AugmentAdditiveEvaluator(Evaluator):
                         use_cache=False
                     )
 
+                    # post-neuter module coverage
                     indv_improve = indvtest_cov.coverage - base_cov
                     if indv_improve.total_cov.covered > 0:
                         testgen_logger.info(f"[IMPROVE] Generated Func: {func.name}")

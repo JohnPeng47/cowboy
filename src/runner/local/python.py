@@ -3,7 +3,7 @@ from cowboy_lib.repo.repository import PatchFileContext, GitRepo
 from cowboy_lib.coverage import CoverageResult
 from cowboy_lib.api.runner.shared import RunTestTaskArgs, FunctionArg
 
-from src.logger import testrunner_logger as log
+from src.logger import master_logger as log
 
 from .models import RepoConfig
 

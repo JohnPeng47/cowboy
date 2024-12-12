@@ -76,10 +76,16 @@ async def neuter_repo(
                 tm_deleted = 0
                 to_exclude = []
                 num_to_del = num_delete(tm, to_keep=to_keep, to_delete=to_delete)
+                if num_to_del < 3:
+                    # NEWTODO: we should track this number in the state somwhere
+                    log.info(f"Skipping {tm.name} as no tests to delete")
+                    continue
+
                 og_contents = test_file.to_code()
             
                 log.info(f"Deleting {num_to_del} tests from {tm.name}")
-
+                # we take the module coverage before and after the unit tests have been rmeoved
+                # to calcuate the difference in coverage
                 modcov_before = await run_test_local(repo_name, None, include_tests=[tm.name], use_cache=False)
                 for func in tm.tests[:num_to_del]:
                     to_exclude.append((func, tm.test_file.path))
@@ -104,12 +110,11 @@ async def neuter_repo(
                 diff_cov = modcov_before.get_coverage() - modcov_after.get_coverage()
 
                 log.info(f"Diff coverage: {diff_cov.total_cov.covered}")
-
                 row = TestModuleRow(
                     tm=tm,
                     base_cov=base_cov,
                     file_content=file_contents,
-                    module_cov=diff_cov,
+                    module_cov=modcov_after,
                     repo_config=repo_config,
                     expected=diff_cov.total_cov.covered
                 )
@@ -165,17 +170,16 @@ async def neuter_repo(
 async def get_target_coverage(repo_name: str, 
                               src_repo: SourceRepo, 
                               base_cov: TestCoverage,
-                              test_modules: List[TestModule]):
-    for tm in test_modules:
-        chunks = await get_tm_target_coverage(
-            repo_name=repo_name,
-            src_repo=src_repo,
-            tm=tm,
-            base_cov=base_cov,
-            run_test=run_test_local,
-            run_args=None
-        )
-        tm.chunks = chunks
+                              test_module: TestModule):
+    chunks = await get_tm_target_coverage(
+        repo_name=repo_name,
+        src_repo=src_repo,
+        tm=test_module,
+        base_cov=base_cov,
+        run_test=run_test_local,
+        run_args=None
+    )
+    test_module.chunks = chunks
 
 if __name__ == "__main__":
     import argparse
@@ -229,19 +233,30 @@ if __name__ == "__main__":
 
     out_repo = Path(args.out_repo) if args.out_repo else None
     src_repo = SourceRepo(Path(repo.source_folder))
-    test_modules = iter_test_modules(src_repo) 
+    test_modules = iter_test_modules(src_repo)
     
-    asyncio.run(get_target_coverage(repo.repo_name, src_repo, base_cov, test_modules[:args.max_tm]))
-    asyncio.run(
-        neuter_repo(
-            dataset,
-            repo.repo_name,
-            test_modules, 
-            src_repo, 
-            base_cov=base_cov,
-            to_keep=args.keep, 
-            to_delete=args.delete,
-            max_tm=args.max_tm,
-            out_repo=out_repo
-        )
-    )
+    current_module = 0
+    while current_module < min(len(test_modules), args.max_tm):
+        try:
+            tm = test_modules[current_module]
+            asyncio.run(get_target_coverage(repo.repo_name, src_repo, base_cov, tm))
+            asyncio.run(
+                neuter_repo(
+                    dataset,
+                    repo.repo_name,
+                    [tm],
+                    src_repo, 
+                    base_cov=base_cov,
+                    to_keep=args.keep, 
+                    to_delete=args.delete,
+                    max_tm=1,
+                    out_repo=out_repo
+                )
+            )
+            
+            current_module += 1
+        except Exception as e:
+            log.error(f"Error processing module {current_module}: {e}")
+            current_module += 1  # Skip the failed module
+            continue
+    
