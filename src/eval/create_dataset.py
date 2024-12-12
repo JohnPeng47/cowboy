@@ -106,8 +106,6 @@ async def neuter_repo(
 
                 log.info(f"OG file content length: {len(og_contents)}")
                 log.info(f"New file content length: {len(file_contents)}")
-                log.info(f"OG file content: {og_contents}")
-                log.info(f"New file content: {file_contents}")
 
                 modcov_after = await run_test_local(repo_name, None, include_tests=[tm.name], use_cache=False)
                 diff_cov = modcov_before.get_coverage() - modcov_after.get_coverage()
@@ -117,7 +115,7 @@ async def neuter_repo(
                     tm=tm,
                     base_cov=base_cov,
                     file_content=file_contents,
-                    module_cov=modcov_after,
+                    module_cov=modcov_after.get_coverage(),
                     repo_config=repo_config,
                     expected=diff_cov.total_cov.covered
                 )
@@ -241,6 +239,10 @@ if __name__ == "__main__":
     current_module = 0
     while current_module < min(len(test_modules), args.max_tm):
         try:
+            print("__________________________________________________________________")
+            print("Current module: ", current_module)
+            print("__________________________________________________________________")
+            
             tm = test_modules[current_module]
             asyncio.run(get_target_coverage(repo.repo_name, src_repo, base_cov, tm))
             asyncio.run(
@@ -260,6 +262,6 @@ if __name__ == "__main__":
             current_module += 1
         except Exception as e:
             log.error(f"Error processing module {current_module}: {e}")
-            current_module += 1  # Skip the failed module
+            test_modules = test_modules[1:]
             continue
     

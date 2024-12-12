@@ -58,7 +58,7 @@ The following output was generated
     def test_fake_method(self):
         pass
 
-Now, generate your response
+Now, generate your response. ONLY GENERATE 3 TEST CASES. ANYMORE AND SOMETHING BAD WILL HAPPEN
 """
         super().__init__(prompt, gpt4_spec, ["test_code", "file_contents"])
 

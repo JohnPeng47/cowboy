@@ -265,6 +265,7 @@ class PytestDiffRunner:
                 "--disable-warnings",
             ]
 
+        log.info(f"CMDER:: ", " ".join(cd_cmd + ["&&"] + cmd))
         print("CMDER:: ", " ".join(cd_cmd + ["&&"] + cmd))
         return " ".join(cd_cmd + ["&&"] + cmd)
 

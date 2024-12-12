@@ -67,3 +67,4 @@ run
 
 tests/test_repos/*
 log/*
+src/eval/datasets/*

@@ -44,6 +44,7 @@ async def augment_test(
     tm = tm_model.serialize(src_repo)
     run_args = RunServiceArgs(user_id=curr_user.id, task_queue=task_queue)
 
+    ## NEWTODO: currently broken since it is still using baseCov
     base_cov = repo.base_cov
     composer = Composer(
         repo_name=repo.repo_name,

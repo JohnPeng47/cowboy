@@ -10,7 +10,7 @@ import inspect
 from cowboy_lib.coverage import CoverageResult
 from cowboy_lib.repo.repository import PatchFile
 
-from src.logger import master_logger as log
+from src.logger import buildtm_logger as log
 
 CACHE_DIR = Path("cache")
 CACHE_DIR.mkdir(exist_ok=True)

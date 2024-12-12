@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 
 from .eval_base import Evaluator
 
-from src.logger import testgen_logger
+from src.logger import testgen_logger as log
 
 
 # NEWTODO: everything under here can be converted to module coverage
@@ -73,8 +73,8 @@ class AugmentAdditiveEvaluator(Evaluator):
                 for func in new_funcs:
                     test_error = cov_res.get_failed(func.name)
                     if test_error:
-                        testgen_logger.info(f"[FAILED] Generated Func: {func.name}")
-                        testgen_logger.info(f"Code: \n{func.to_code()}")
+                        log.info(f"[FAILED] Generated Func: {func.name}")
+                        log.info(f"Code: \n{func.to_code()}")
 
                         failed_tests.append((func, test_error))
                         continue
@@ -91,6 +91,7 @@ class AugmentAdditiveEvaluator(Evaluator):
                     indvtest_cov = await self.run_test(
                         self.repo_name,
                         self.run_args,
+                        include_tests=[tm.name],
                         patch_file=patch_file,
                         use_cache=False
                     )
@@ -98,13 +99,13 @@ class AugmentAdditiveEvaluator(Evaluator):
                     # post-neuter module coverage
                     indv_improve = indvtest_cov.coverage - base_cov
                     if indv_improve.total_cov.covered > 0:
-                        testgen_logger.info(f"[IMPROVE] Generated Func: {func.name}")
-                        testgen_logger.info(f"Code: \n{func.to_code()}")
+                        log.info(f"[IMPROVE] Generated Func: {func.name}")
+                        log.info(f"Code: \n{func.to_code()}")
 
                         improved_tests.append((func, indv_improve))
                     else:
-                        testgen_logger.info(f"[NOIMPROVE] Generated Func: {func.name}")
-                        testgen_logger.info(f"Code: \n{func.to_code()}")
+                        log.info(f"[NOIMPROVE] Generated Func: {func.name}")
+                        log.info(f"Code: \n{func.to_code()}")
 
                         noimprov_tests.append((func, TestCoverage([])))
 

@@ -21,12 +21,14 @@ class Evaluator(ABC):
         repo_name: str, 
         src_repo: "SourceRepo", 
         run_args: RunServiceArgs,
-        run_test: Callable
+        tm: "TestModule",
+        run_test: Callable,
     ):
         self.repo_name = repo_name
         self.src_repo = src_repo
         self.run_args = run_args
         self.run_test = run_test
+        self.tm = tm
 
     async def gen_test_and_diff_coverage(
         self,
@@ -49,13 +51,21 @@ class Evaluator(ABC):
         # NEWTODO: why not run against module coverage here?
         for i, (test_file, test_funcs) in enumerate(strat_results, start=1):
             patch_file = PatchFile(path=test_fp, patch=test_file)
-            # NEWTODO: need to replace this with module coverage
+            # NEWTODO:MODULECOV need to replace this with module coverage
             cov_ptched = await self.run_test(
-                self.repo_name, self.run_args, patch_file=patch_file, use_cache=False
+                self.repo_name, 
+                self.run_args, 
+                include_tests=[self.tm.name],
+                patch_file=patch_file, 
+                use_cache=False
             )
             cov_diff = cov_ptched.coverage - base_cov
+            if cov_diff.total_cov.covered < 0:
+                testgen_logger.info(f"Negative coverage, skipping")
+                continue
             # TODO: this covered number is off check
             # NEWTODO: why can this number be negative?
+            # testgen_logger.info(f"")
             testgen_logger.info(
                 f"New coverage from generated tests: {cov_diff.total_cov.covered}"
             )

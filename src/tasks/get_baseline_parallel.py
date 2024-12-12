@@ -82,12 +82,8 @@ async def get_tm_target_coverage(
     The diff measures how well we are able to supplant the coverage of the deleted methods
     """
 
-    # if testfiles_in_coverage(base_cov, src_repo):
-    #     raise TestInCoverageException
-
     # First loop we find the total coverage of each test by itself
     only_module = [tm.name]
-    # coverage with ONLY the current test module turned on
     log.info(f"Collecting target chunks for {tm.name}")
 
     # TODO: should be storing this as well
@@ -109,7 +105,6 @@ async def get_tm_target_coverage(
         chg_cov = []
         coroutines = []
 
-        # Think the high negatives fail at some edge case here
         for test in tm.tests:
             task = run_test(
                 repo_name,

@@ -2,6 +2,7 @@ import os
 from typing import Dict, Tuple
 from braintrust import init_dataset, EvalAsync
 from pathlib import Path
+import asyncio
 from cowboy_lib.repo import SourceRepo, GitRepo
 
 from src.repo.models import RepoConfig
@@ -16,12 +17,17 @@ import dotenv
 
 dotenv.load_dotenv()
 
+EVAL_OUTPUT = Path("src/eval/output")
+
 def score(output: Tuple, expected: int):
     tests, cov_added = output
-    return cov_added
+
+    print(f"Cov added: {cov_added} / {expected}")
+    return cov_added / expected
 
 async def eval_augment(data: Dict):
-    data = TestModuleRow.from_json2(data)
+    # data = TestModuleRow.from_json2(data)
+    data = TestModuleRow.from_json(data)
     src_repo = SourceRepo(Path(data.repo_config["source_folder"]))
     composer = Composer(
         repo_name=data.repo_config["repo_name"],
@@ -30,7 +36,6 @@ async def eval_augment(data: Dict):
         src_repo=src_repo,
         test_input=data.tm,
         run_args=None,
-        base_cov=data.base_cov,
         api_key=COWBOY_OPENAI_API_KEY,
         run_test=run_test
     )
@@ -39,18 +44,27 @@ async def eval_augment(data: Dict):
     )
     all_tests = ""
     cov_added = 0
-    for testfile, cov_diff in improved:
-        all_tests += testfile.to_code()
-        cov_added += cov_diff.total_cov.covered
+    with open(EVAL_OUTPUT / f"{data.tm.name}.txt", "w") as f:
+        for testfile, cov_diff in improved:
+            f.write(f"Coverage Improve : {cov_diff.total_cov.covered}\n")
+            f.write(f"{testfile.to_code()}\n")
 
     return all_tests, cov_added
     
-async def eval_dataset(repo_name: str, dataset_name: str):
+async def eval_dataset(repo_name: str, 
+                       dataset_name: str, 
+                       num_records: int = 0):
     # dataset = init_dataset(project="Cowboy", name=dataset_name, api_key=BRAINTRUST_API_KEY)
     dataset = [datum.to_json() for datum in read_rows(repo_name)]
-    await EvalAsync(
-        repo_name,
-        dataset,
-        eval_augment,
-        score
-    )
+    num_records = len(dataset) if num_records == 0 else num_records
+
+    print(f"Using {num_records} of {dataset_name}")
+    for dataset in dataset[:num_records]:
+        await eval_augment(dataset)
+
+    # await EvalAsync(
+    #     repo_name,
+    #     dataset[:num_records],
+    #     eval_augment,
+    #     [score]
+    # )

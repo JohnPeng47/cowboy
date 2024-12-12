@@ -10,6 +10,7 @@ from .evaluators import (
 
 from cowboy_lib.llm.invoke_llm import invoke_llm_async
 from cowboy_lib.llm.models import OpenAIModel, ModelArguments
+from cowboy_lib.repo.repository import PatchFile
 from cowboy_lib.repo.source_repo import SourceRepo
 from cowboy_lib.repo.source_file import Function, LintException
 from cowboy_lib.coverage import TestCoverage, TestError
@@ -17,7 +18,7 @@ from cowboy_lib.coverage import TestCoverage, TestError
 from src.test_gen.augment_test.strats import AugmentStratType, AUGMENT_STRATS
 from src.runner.service import RunServiceArgs
 from src.exceptions import CowboyRunTimeException
-from src.logger import testgen_logger
+from src.logger import testgen_logger as log
 
 
 from src.config import LLM_RETRIES
@@ -38,7 +39,6 @@ class Composer:
         src_repo: SourceRepo,
         test_input: TestCaseInput,
         run_args: RunServiceArgs,
-        base_cov: TestCoverage,
         api_key: str,
         verify: bool = False,
         run_test: Callable = None
@@ -47,12 +47,12 @@ class Composer:
         self.src_repo = src_repo
         self.test_input = test_input
         self.verify = verify
-        self.base_cov = base_cov
         self.run_args = run_args
+        self.run_test = run_test
 
         self.strat: BaseStrategy = AUGMENT_STRATS[strat](self.src_repo, self.test_input)
         self.evaluator: Evaluator = AUGMENT_EVALS[evaluator](
-            self.repo_name, self.src_repo, self.run_args, run_test
+            self.repo_name, self.src_repo, self.run_args, test_input, self.run_test
         )
 
         model_name = "gpt4"
@@ -62,10 +62,14 @@ class Composer:
         return self.__class__.__name__
 
     def filter_overlap_improvements(
-        self, tests: List[Tuple[Function, TestCoverage]]
+        self, 
+        tests: List[Tuple[Function, TestCoverage]], 
+        module_cov: TestCoverage
     ) -> List[Tuple[Function, TestCoverage]]:
         no_overlap = []
-        overlap_cov = self.base_cov
+        # NEWTODO:MODULECOV -> actually no ops needed
+        # confirm that TestCoverage here 
+        overlap_cov = module_cov
         for test, cov in tests:
             new_cov = overlap_cov + cov
             if new_cov.total_cov.covered > overlap_cov.total_cov.covered:
@@ -80,20 +84,16 @@ class Composer:
         List[Tuple[Function, TestError]],
         List[Function],
     ]:
-
         improved_tests = []
         failed_tests = []
         no_improve_tests = []
 
-        # TODO: here is whee we initialize the StartCodeTx
         prompt = self.strat.build_prompt()
         print(f"Prompt: {prompt}")
 
         model_res = await invoke_llm_async(prompt, self.model, n_times)
-
         llm_results = [self.strat.parse_llm_res(res) for res in model_res]
         test_results = [StratResult(res, self.test_input.path) for res in llm_results]
-
         improved, failed, no_improve = await self.evaluator(
             test_results,
             self.test_input,
@@ -119,15 +119,18 @@ class Composer:
             raise Exception(
                 f"Expected AugmentAdditiveEvaluator, got {self.evaluator.__class__}"
             )
+        
+        log.info(f"### Starting serial additive test for {self.test_input.name} ###")
 
         improved_tests = []
         failed_tests = []
         no_improve_tests = []
         prompt = self.strat.build_prompt()
 
-        print("Prompt: ", prompt)
+        log.info(f"Prompt: \n{prompt}")
 
-        for _ in range(n_times):
+        patch_modfile = None
+        for i in range(n_times):
             retries = LLM_RETRIES
             src_file = None
             while retries > 0 and not src_file:
@@ -139,7 +142,7 @@ class Composer:
                     )
                     src_file = self.strat.parse_llm_res(llm_res[0])
                 except (SyntaxError, ValueError, LintException):
-                    testgen_logger.info(f"LLM syntax error ... {retries} left")
+                    log.info(f"LLM syntax error ... {retries} left")
                     retries -= 1
                     continue
 
@@ -148,17 +151,30 @@ class Composer:
                     f"LLM generation failed for {self.test_input}"
                 )
 
+            # NEWTODO:MODULECOV -> we need to recalculate the module coverage anew each round 
+            # with the contents of the new patchFile
+            module_cov = await self.run_test(
+                self.repo_name, 
+                self.run_args, 
+                include_tests=[self.test_input.name],
+                patch_file=patch_modfile,
+            )
+            module_cov = module_cov.get_coverage()
+            log.info(f"Module coverage: {module_cov}")
+
             test_result = [StratResult(src_file, self.test_input.path)]
             improved, failed, no_improve = await self.evaluator(
                 test_result,
                 self.test_input,
-                self.base_cov,
+                module_cov,
                 n_times=n_times,
             )
             improved_tests.extend(improved)
-            filtered_improved = self.filter_overlap_improvements(improved_tests)
-            improved_tests = filtered_improved
 
+            log.info(f"Round [{i}/{n_times}] => Improved: {len(improved)}, Failed: {len(failed)}, NoImprove: {len(no_improve)}")
+
+            filtered_improved = self.filter_overlap_improvements(improved_tests, module_cov)
+            improved_tests = filtered_improved
             # update test input with new functions that improved coverage
             for new_func in [
                 func
@@ -174,6 +190,12 @@ class Composer:
             failed_tests.extend(failed)
             no_improve_tests.extend(no_improve)
 
+            # NEWTODO: UPDATE HERE WITH NEW GENERATED PATCHFILE
+            patch_modfile = PatchFile(
+                path=self.test_input.path,
+                patch=self.test_input.test_file.to_code(),
+            )
+            
         return improved_tests, failed_tests, no_improve_tests
 
     async def generate_test(self, n_times: int) -> Tuple[

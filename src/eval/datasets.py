@@ -16,8 +16,8 @@ DATASET_ROOT = Path(EVAL_DATA_ROOT)
 class TestModuleRow(BaseModel):
     tm: TestModule
     file_content: str
-    module_cov: TestCoverage # THEE
-    base_cov: TestCoverage
+    # module_cov: TestCoverage # THEE
+    # base_cov: TestCoverage
     repo_config: Dict
     expected: int = 0
 
@@ -29,8 +29,8 @@ class TestModuleRow(BaseModel):
             "input": {
                 "tm": self.tm.to_json(),
                 "file_content": self.file_content,
-                "module_cov": self.module_cov.serialize(),
-                "base_cov": self.base_cov.serialize(),
+                # "module_cov": self.module_cov.serialize(),
+                # "base_cov": self.base_cov.serialize(),
                 "repo_config": self.repo_config
             },
             "expected": self.expected,
@@ -43,8 +43,8 @@ class TestModuleRow(BaseModel):
         return cls(
             tm=TestModule.from_json(input["tm"]),
             file_content=input["file_content"],
-            base_cov=TestCoverage.deserialize(input["base_cov"]),
-            module_cov=TestCoverage.deserialize(input["module_cov"]),
+            # base_cov=TestCoverage.deserialize(input["base_cov"]),
+            # module_cov=TestCoverage.deserialize(input["module_cov"]),
             repo_config=input["repo_config"],
             expected=data["expected"]
         )
@@ -54,8 +54,8 @@ class TestModuleRow(BaseModel):
         return cls(
             tm=TestModule.from_json(input["tm"]),
             file_content=input["file_content"],
-            base_cov=TestCoverage.deserialize(input["base_cov"]),
-            module_cov=TestCoverage.deserialize(input["module_cov"]),
+            # base_cov=TestCoverage.deserialize(input["base_cov"]),
+            # module_cov=TestCoverage.deserialize(input["module_cov"]),
             repo_config=input["repo_config"],
             # expected=data["expected"]
         )
