@@ -24,6 +24,9 @@ from src.logger import buildtm_logger as log
 
 from .datasets import TestModuleRow, persist_rows, read_rows
 
+class NoTestsToDelete(Exception):
+    pass
+
 # Create a session factory (similar to main.py)
 Session = sessionmaker(bind=engine)
 
@@ -79,7 +82,7 @@ async def neuter_repo(
                 if num_to_del < 3:
                     # NEWTODO: we should track this number in the state somwhere
                     log.info(f"Skipping {tm.name} as no tests to delete")
-                    continue
+                    raise NoTestsToDelete()
 
                 og_contents = test_file.to_code()
             
@@ -253,7 +256,7 @@ if __name__ == "__main__":
                     out_repo=out_repo
                 )
             )
-            
+
             current_module += 1
         except Exception as e:
             log.error(f"Error processing module {current_module}: {e}")
