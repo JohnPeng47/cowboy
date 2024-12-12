@@ -10,10 +10,10 @@ if TYPE_CHECKING:
 
 from .eval_base import Evaluator
 
-from src.runner.service import run_test
 from src.logger import testgen_logger
 
 
+# NEWTODO: everything under here can be converted to module coverage
 class AugmentAdditiveEvaluator(Evaluator):
     """
     Iteratively evals test results and re-prompts with partially successful
@@ -88,10 +88,11 @@ class AugmentAdditiveEvaluator(Evaluator):
                     patch_file = PatchFile(
                         path=str(tm.path), patch=og_testfile.to_code()
                     )
-                    indvtest_cov = await run_test(
+                    indvtest_cov = await self.run_test(
                         self.repo_name,
                         self.run_args,
                         patch_file=patch_file,
+                        use_cache=False
                     )
 
                     indv_improve = indvtest_cov.coverage - base_cov

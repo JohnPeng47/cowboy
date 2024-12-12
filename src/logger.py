@@ -48,10 +48,11 @@ def get_file_handler(log_dir=LOG_DIR, file_prefix: str = ""):
     """
     Returns a file handler for logging.
     """
-    os.makedirs(log_dir, exist_ok=True)
+    log_subdir = os.path.join(log_dir, file_prefix)
+    os.makedirs(log_subdir, exist_ok=True)
     timestamp = datetime.now().strftime("%Y-%m-%d")
     file_name = f"{file_prefix}_{timestamp}.log"
-    file_handler = logging.FileHandler(os.path.join(log_dir, file_name))
+    file_handler = logging.FileHandler(os.path.join(log_subdir, file_name))
     file_handler.setFormatter(formatter)
     return file_handler
 
@@ -80,7 +81,21 @@ sync_repo.setLevel(logging.INFO)
 sync_repo.addHandler(get_file_handler(file_prefix="syncrepo"))
 # sync_repo.addHandler(get_console_handler())
 
-loggers = [testgen_logger, sync_repo, buildtm_logger]
+testrunner_logger = logging.getLogger("testrunner_logger")
+testrunner_logger.setLevel(logging.INFO)
+testrunner_logger.addHandler(get_file_handler(file_prefix="syncrepo"))
+
+master_logger = logging.getLogger("master_logger")
+# Add handlers from all other loggers
+for logger in [testgen_logger, buildtm_logger, sync_repo, testrunner_logger]:
+    for handler in logger.handlers:
+        master_logger.addHandler(handler)
+
+# Add console handler if not already present
+if not any(isinstance(h, logging.StreamHandler) for h in master_logger.handlers):
+    master_logger.addHandler(get_console_handler())
+
+loggers = [testgen_logger, sync_repo, buildtm_logger, testrunner_logger, master_logger]
 
 
 def set_log_level(level=logging.INFO):

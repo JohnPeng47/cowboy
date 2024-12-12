@@ -39,6 +39,11 @@ LOG_DIR = "log"
 REPOS_ROOT = "repos"
 AWS_REGION = "us-east-2"
 
+# braintrust settings
+BT_PROJECT = "Cowboy"
+BRAINTRUST_API_KEY = config("BRAINTRUST_API_KEY")
+
+EVAL_DATA_ROOT = "src/eval/datasets"
 
 class Language(str, Enum):
     """

@@ -172,8 +172,7 @@ async def get_or_create_local(
     task_queue: TaskQueue,
 ) -> RepoConfig:
     """Gets an existing repo or creates a new one with cloned and source folder provided in the config"""
-    print("Session @ 2: ", id(db_session))
-
+    
     # Check if the repo already exists
     repo = db_session.query(RepoConfig).filter_by(repo_name=repo_in.repo_name, user_id=user_id).first()
     if repo:
@@ -214,7 +213,7 @@ async def get_or_create_local(
     create_all_tms(db_session=db_session, repo_conf=repo, src_repo=src_repo)
 
     db_session.commit()
-    return repo
+    return repo, base_cov
 
 
 def update(

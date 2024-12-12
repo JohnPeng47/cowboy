@@ -5,9 +5,12 @@ import pickle
 from functools import wraps
 from pathlib import Path
 from typing import Any, Optional
+import inspect
 
 from cowboy_lib.coverage import CoverageResult
 from cowboy_lib.repo.repository import PatchFile
+
+from src.logger import master_logger as log
 
 CACHE_DIR = Path("cache")
 CACHE_DIR.mkdir(exist_ok=True)
@@ -77,21 +80,41 @@ def cache_test_run(func):
         include_tests: list = [],
         patch_file: Optional[PatchFile] = None,
         stream = False,
+        use_cache = True,
+        delete_last = False,
     ) -> CoverageResult:
-        init_cache()
-        cache_key = compute_hash(repo_name, exclude_tests, include_tests, patch_file)
-        
-        # Try to get from cache
-        print(f"Returning from cache: {(repo_name, exclude_tests, include_tests)}")
-        cached_result = read_cache(cache_key)
-        if cached_result is not None:
-            return cached_result
+        LOG_NUM = 200
+        if use_cache:
+            init_cache()
+            cache_key = compute_hash(repo_name, exclude_tests, include_tests, patch_file)
+            if delete_last:
+                # Delete the last existing entry for the computed hash
+                delete_cache_entry(cache_key)
+            
+            # Try to get from cache
+            log.info(f"Returning from cache: {(repo_name, exclude_tests, include_tests)}")
+            cached_result = read_cache(cache_key)
+            if cached_result is not None:
+                caller = inspect.stack()[1]  # Get immediate caller
+                log.info(f"Returning from cache: {(repo_name, exclude_tests, include_tests)} \
+                          - called from {caller.filename}:{caller.lineno} in {caller.function}")
+                
+                return cached_result
             
         # Run the actual function if not in cache
         result = await func(repo_name, service_args, exclude_tests, include_tests, patch_file, stream)
-        if not cached_result:
-            print(f"Saving to cache: {(repo_name, exclude_tests, include_tests)}")
+
+        if use_cache and not cached_result:
+            log.info(f"Saving to cache: {(repo_name, exclude_tests, include_tests)}")
             save_cache(cache_key, result)
+
         return result
-        
     return wrapper
+
+def delete_cache_entry(hash_key: str):
+    """Delete a cache entry by hash key"""
+    conn = sqlite3.connect(str(DB_PATH))
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM test_cache WHERE hash = ?", (hash_key,))
+    conn.commit()
+    conn.close()

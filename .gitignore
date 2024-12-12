@@ -66,3 +66,4 @@ alembic.ini
 run
 
 tests/test_repos/*
+log/*

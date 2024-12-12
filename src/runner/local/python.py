@@ -1,6 +1,9 @@
+from cowboy_lib.ast import Function
 from cowboy_lib.repo.repository import PatchFileContext, GitRepo
 from cowboy_lib.coverage import CoverageResult
 from cowboy_lib.api.runner.shared import RunTestTaskArgs, FunctionArg
+
+from src.logger import testrunner_logger as log
 
 from .models import RepoConfig
 
@@ -14,10 +17,6 @@ import time
 import sys
 from contextlib import contextmanager
 import queue
-from logging import getLogger
-
-log = getLogger(__name__)
-
 
 COVERAGE_FILE = "coverage.json"
 TestError = NewType("TestError", str)
@@ -101,7 +100,7 @@ class LockedRepos:
 
 
 def get_exclude_path(
-    func: FunctionArg,
+    func: Function,
     rel_fp: Path,
 ):
     """
@@ -109,7 +108,7 @@ def get_exclude_path(
     """
     excl_name = (
         (func.name.split(".")[0] + "::" + func.name.split(".")[1])
-        if func.is_meth
+        if func.is_meth()
         else func.name
     )
 
@@ -331,7 +330,7 @@ class PytestDiffRunner:
             patch_file = args.patch_file
             if patch_file:
                 patch_file.path = git_repo.repo_folder / patch_file.path
-                log.info(f"Using patch file: {patch_file.path}")
+                # log.info(f"Using patch file: {patch_file.path}")
 
             exclude_tests = args.exclude_tests
             include_tests = args.include_tests
@@ -349,7 +348,6 @@ class PytestDiffRunner:
             )
 
             log.info(f"Running with command: {cmd_str}")
-
             with PatchFileContext(git_repo, patch_file):
                 proc = subprocess.Popen(
                     cmd_str,

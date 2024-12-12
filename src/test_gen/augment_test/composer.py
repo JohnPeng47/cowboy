@@ -22,7 +22,7 @@ from src.logger import testgen_logger
 
 from src.config import LLM_RETRIES
 
-from typing import Tuple, List
+from typing import Tuple, List, Callable
 
 
 class Composer:
@@ -41,6 +41,7 @@ class Composer:
         base_cov: TestCoverage,
         api_key: str,
         verify: bool = False,
+        run_test: Callable = None
     ):
         self.repo_name = repo_name
         self.src_repo = src_repo
@@ -51,7 +52,7 @@ class Composer:
 
         self.strat: BaseStrategy = AUGMENT_STRATS[strat](self.src_repo, self.test_input)
         self.evaluator: Evaluator = AUGMENT_EVALS[evaluator](
-            self.repo_name, self.src_repo, self.run_args
+            self.repo_name, self.src_repo, self.run_args, run_test
         )
 
         model_name = "gpt4"

@@ -4,6 +4,7 @@ from src.auth.service import get_current_user
 from src.stats.service import update_repo_stats
 from src.repo.service import get_or_raise, get_by_id_or_raise
 from src.queue.core import get_queue
+from src.runner.service import run_test
 
 # from src.logger import accepted_count, failed_count, total_count
 
@@ -83,6 +84,7 @@ async def augment_test_route(
             tm_model=tm_model,
             curr_user=curr_user,
             session_id=session_id,
+            run_test=run_test
         )
         coroutines.append(coroutine)
 

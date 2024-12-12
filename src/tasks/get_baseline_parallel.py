@@ -93,18 +93,20 @@ async def get_tm_target_coverage(
         run_args,
         # part1: collect the coverage of a single module only
         include_tests=only_module,
+        # stream = True,
+        use_cache = False,
+        delete_last = False
     )
     log.info(f"BaseCov: {base_cov}")
-    log.info(f"ModuleCov: {module_cov.coverage}")
+    log.info(f"ModuleCov: {module_cov.get_coverage()}")
 
-    module_diff = base_cov - module_cov.coverage
+    module_diff = base_cov - module_cov.get_coverage()
     total_cov_diff = module_diff.total_cov.covered
     if total_cov_diff > 0:
         chg_cov = []
         coroutines = []
 
         for test in tm.tests:
-            print("Running test ... ", test.name)
             task = run_test(
                 repo_name,
                 run_args,
@@ -113,31 +115,33 @@ async def get_tm_target_coverage(
                 # been selectively turned off
                 exclude_tests=[(test, tm.test_file.path)],
                 include_tests=only_module,
+                # stream = True,
+                use_cache = False,
+                delete_last = False
             )
             coroutines.append(task)
 
+        total_covered = 0
         test_coverage = defaultdict(int)
         cov_res = await asyncio.gather(*[t for t in coroutines])
-        for test, test_cov in zip(tm.tests, cov_res):                
-            print("ModuleCov: ", module_cov.coverage)
-            print("Test cov: ", test_cov.coverage)
+        for test, test_cov in zip(tm.tests, cov_res): 
+            log.info(f"Collecting coverage for test: {test.name}")  
+            log.info(f"ModuleCov: {module_cov.get_coverage()}")
+            log.info(f"TestCov: {test_cov.get_coverage()}")
             
             # part 3: we subtract the module from the 
-            single_diff: TestCoverage = module_cov.coverage - test_cov.coverage
-            test_coverage[test.name] += single_diff.total_cov.covered
+            single_diff: TestCoverage = module_cov.get_coverage() - test_cov.get_coverage()
+            if single_diff.total_cov.covered > 0:
+                test_coverage[test.name] = single_diff.total_cov.covered
+                total_covered += single_diff.total_cov.covered
+                log.warn(f"Coverage for {test} is positive: {single_diff.total_cov.covered}")
 
-            # dont think we actually need this here .. confirm
-            chg_cov.extend(single_diff.cov_list)
+                chg_cov.extend(single_diff.cov_list)
+            else:
+                log.warn(f"Coverage for {test} is negative: {single_diff.total_cov.covered}")
+                continue
 
-        # NEWTODO: potentially we should store this on a TestModel object
-        # although we would first have to create that ...
-        for test, coverage in test_coverage.items():
-            log.info(f"{test} covered by {coverage} lines")
-
-            # TBH, not sure why this happens
-            if coverage < 0:
-                log.warn(f"Coverage for {test} is negative: {coverage}")
-              
+        print(f"Total covered for {tm.name}: ", total_covered)
         # re-init the chunks according to the aggregated individual test coverages
         chunks = set_chunks(
             chg_cov,

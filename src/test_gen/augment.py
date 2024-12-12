@@ -17,7 +17,7 @@ from .service import create_test_result
 
 from sqlalchemy.orm import Session
 from pathlib import Path
-from typing import List
+from typing import List, Callable
 
 
 # FEATURE: add lines additional lines covered here
@@ -33,7 +33,8 @@ async def augment_test(
     repo: RepoConfig,
     tm_model: TestModuleModel,
     curr_user: CowboyUser,
-    session_id: str
+    session_id: str,
+    run_test: Callable
 ) -> List[AugmentTestResult]:
     """
     Generate test cases for the given test module using the specified strategy and evaluator
@@ -53,6 +54,7 @@ async def augment_test(
         run_args=run_args,
         base_cov=base_cov,
         api_key=retrieve_oai_key(curr_user.id),
+        run_test=run_test
     )
 
     improved_tests, failed_tests, no_improve_tests = await composer.generate_test(

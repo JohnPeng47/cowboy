@@ -2,9 +2,9 @@ from cowboy_lib.coverage import CoverageResult, TestError, TestCoverage
 from cowboy_lib.repo.repository import PatchFile
 from cowboy_lib.repo.source_file import Function, TestFile
 
-from src.runner.service import run_test, RunServiceArgs
+from src.runner.service import RunServiceArgs
 from src.logger import testgen_logger
-from typing import Tuple, List, TYPE_CHECKING
+from typing import Callable, Tuple, List, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from test_gen.augment_test.types import StratResult
@@ -17,16 +17,21 @@ from abc import ABC, abstractmethod
 
 class Evaluator(ABC):
     def __init__(
-        self, repo_name: str, src_repo: "SourceRepo", run_args: RunServiceArgs
+        self, 
+        repo_name: str, 
+        src_repo: "SourceRepo", 
+        run_args: RunServiceArgs,
+        run_test: Callable
     ):
         self.repo_name = repo_name
         self.src_repo = src_repo
         self.run_args = run_args
+        self.run_test = run_test
 
     async def gen_test_and_diff_coverage(
         self,
         strat_results: List["StratResult"],
-        base_cov: TestCoverage,
+        base_cov: TestCoverage, # NEWTODO: convert this to modulecov
         test_fp: Path,
         n_times: int = 1,
     ) -> List[Tuple[CoverageResult, TestCoverage]]:
@@ -41,10 +46,11 @@ class Evaluator(ABC):
 
         # WARNING: for some reason failures here are not recorded fully for every new individual
         # that is generate. Possibly due to failures cascading?
+        # NEWTODO: why not run against module coverage here?
         for i, (test_file, test_funcs) in enumerate(strat_results, start=1):
             patch_file = PatchFile(path=test_fp, patch=test_file)
-            cov_ptched = await run_test(
-                self.repo_name, self.run_args, patch_file=patch_file
+            cov_ptched = await self.run_test(
+                self.repo_name, self.run_args, patch_file=patch_file, use_cache=False
             )
             cov_diff = cov_ptched.coverage - base_cov
             # TODO: this covered number is off check
