@@ -44,7 +44,11 @@ async def eval_augment(data: Dict):
     )
     all_tests = ""
     cov_added = 0
-    with open(EVAL_OUTPUT / f"{data.tm.name}.txt", "w") as f:
+
+    output_dir = EVAL_OUTPUT / data.repo_config["repo_name"]
+    os.makedirs(output_dir, exist_ok=True)
+
+    with open(output_dir / f"{data.tm.name}.txt", "w") as f:
         for testfile, cov_diff in improved:
             f.write(f"Coverage Improve : {cov_diff.total_cov.covered}\n")
             f.write(f"{testfile.to_code()}\n")

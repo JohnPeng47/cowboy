@@ -1,0 +1,11 @@
+Coverage Improve : 51
+    def test_handle_repo_refs_change_with_no_changes(self):
+        response = self._post_event_data(
+            event=BitbucketServerWebhookEvents.REPO_REFS_CHANGED,
+            data={
+                "repository": {"id": "673a6070-3421-46c9-9d48-90745f7bfe8e"},
+                "push": {"changes": []},
+            },
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data is None

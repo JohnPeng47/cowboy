@@ -1,0 +1,103 @@
+Coverage Improve : 182
+    def test_handle_system_hook_with_enterprise_license(self):
+        self.get_config_mock.side_effect = lambda *args, **kwargs: (
+            True
+            if args == ("setup", "enterprise_license")
+            else get_config_mock(*args, **kwargs)
+        )
+        owner = OwnerFactory(service="gitlab")
+        repo = RepositoryFactory(author=owner)
+
+        event_data = {
+            "event": GitLabWebhookEvents.SYSTEM,
+            "data": {
+                "event_name": "project_create",
+                "project_id": repo.service_id,
+            },
+        }
+
+        response = self._post_event_data(**event_data)
+        assert response.status_code == status.HTTP_200_OK
+Coverage Improve : 112
+    def test_handle_system_hook_with_enterprise_license(self):
+        self.get_config_mock.side_effect = lambda *args, **kwargs: (
+            True
+            if args == ("setup", "enterprise_license")
+            else get_config_mock(*args, **kwargs)
+        )
+        owner = OwnerFactory(service="gitlab")
+        repo = RepositoryFactory(author=owner)
+
+        event_data = {
+            "event": GitLabWebhookEvents.SYSTEM,
+            "data": {
+                "event_name": "project_create",
+                "project_id": repo.service_id,
+            },
+        }
+
+        response = self._post_event_data(**event_data)
+        assert response.status_code == status.HTTP_200_OK
+Coverage Improve : 112
+    def test_system_hook_project_create_enterprise(self):
+        # Configure the mock to return True for enterprise_license check
+        self.get_config_mock.side_effect = lambda *args, **kwargs: args == (
+            "setup",
+            "enterprise_license",
+        ) or kwargs.get("default")
+        repo = RepositoryFactory(author=OwnerFactory(service="gitlab"))
+
+        event_data = {
+            "event": GitLabWebhookEvents.SYSTEM,
+            "data": {
+                "event_name": "project_create",
+                "project_id": repo.service_id,
+            },
+        }
+
+        response = self._post_event_data(**event_data)
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data == "Sync initiated"
+Coverage Improve : 99
+    def test_job_event_non_complete_commit(self):
+        commit_sha = "e6d0fae083841ebf7740a9e7a8af35ad2bceef2d"
+        CommitFactory(
+            author=self.repo.author,
+            repository=self.repo,
+            commitid=commit_sha,
+            state=Commit.CommitStates.PENDING,
+        )
+
+        response = self._post_event_data(
+            event=GitLabWebhookEvents.JOB,
+            data={
+                "object_kind": "build",
+                "project_id": self.repo.service_id,
+                "build_status": "success",
+                "sha": commit_sha,
+            },
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert (
+            response.data == WebhookHandlerErrorMessages.SKIP_PROCESSING
+        ), "Expected non-complete commits to be skipped."
+Coverage Improve : 88
+    def test_handle_system_hook_with_enterprise_license(self):
+        self.get_config_mock.side_effect = lambda *args, **kwargs: (
+            True
+            if args == ("setup", "enterprise_license")
+            else get_config_mock(*args, **kwargs)
+        )
+        owner = OwnerFactory(service="gitlab")
+        repo = RepositoryFactory(author=owner)
+
+        event_data = {
+            "event": GitLabWebhookEvents.SYSTEM,
+            "data": {
+                "event_name": "project_create",
+                "project_id": repo.service_id,
+            },
+        }
+
+        response = self._post_event_data(**event_data)
+        assert response.status_code == status.HTTP_200_OK

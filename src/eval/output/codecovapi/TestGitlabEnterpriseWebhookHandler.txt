@@ -1,0 +1,65 @@
+Coverage Improve : 263
+    def test_secret_validation_no_secret_in_repo(self):
+        # No webhook_secret is set for the repository
+        owner = OwnerFactory(service="gitlab_enterprise")
+        repo = RepositoryFactory(
+            author=owner,
+            service_id=uuid.uuid4(),
+            webhook_secret=None,  # repo does not have a webhook secret
+        )
+        owner.permission = [repo.repoid]
+        owner.save()
+
+        response = self.client.post(
+            reverse("gitlab_enterprise-webhook"),
+            **{
+                GitLabHTTPHeaders.EVENT: "",
+                GitLabHTTPHeaders.TOKEN: "any-token",
+            },
+            data={
+                "project_id": repo.service_id,
+            },
+            format="json",
+        )
+        # Should be allowed since no secret is expected
+        assert response.status_code == status.HTTP_200_OK
+Coverage Improve : 281
+    def test_job_event_triggers_notify_with_correct_data(self):
+        # Simulate job event triggering with all proper conditions met
+        commit_sha = "2293ada6b400935a1378653304eaf6221e0fdb8f"
+        commit = CommitFactory(
+            author=self.repo.author,
+            repository=self.repo,
+            commitid=commit_sha,
+            state=Commit.CommitStates.COMPLETE,
+        )
+
+        response = self._post_event_data(
+            event=GitLabWebhookEvents.JOB,
+            data={
+                "object_kind": "build",
+                "project_id": self.repo.service_id,
+                "build_status": "success",
+                "sha": commit_sha,
+            },
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data == "Notify queued."
+        commit.refresh_from_db()
+        assert (
+            commit.notified
+        )  # Assuming the 'notified' attribute signals that a notification has been sent
+Coverage Improve : 218
+    def test_handle_push_event_with_non_existing_commit(self):
+        """Test handling of a push event when the commit does not exist in the system."""
+        data = {
+            "object_kind": "push",
+            "project_id": self.repo.service_id,
+            "commits": [{"id": "nonexistingcommit"}],
+        }
+        response = self._post_event_data(
+            event=GitLabWebhookEvents.PUSH,
+            data=data,
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert "commit does not exist" in response.data.lower()
