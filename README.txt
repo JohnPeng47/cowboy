@@ -67,3 +67,5 @@ And the dir tree of the repo:
 Find the main source file under test
 """
 Actually worked pretty well. And can use existing test -> src mappings to bootstrap the LLM
+2. Update test when src changes (using the test -> src mapping) 
+3. Add codesearch as a tool call to test generation to provide context outside of the source file
