@@ -25,6 +25,7 @@ TM1: test_file.py --(tests)--> test_file.py::test1, test_file.py::test2
 TM2: TestClass    --(tests)--> TestClass::test_meth1, TestClass::test_meth2 
 
 3. For each test TestModule, we then attempt to build a test_file -> source_file mapping. This is accomplished by a novel coverage diffing algorithm that iterates through each test in a TestModule and calculates the line coverage difference (set diff, ie. [1,2,3] - [1,2] = 3) between itself and the TestModule. Summing these line coverages together, we get a set of source file lines that are *uniquely* covered by the tests in the TestModule (more notes on this in following section)
+
 4. For each TestModule, prompt a LLM with the following to generate a batch of tests
 """
 Given the following existing test suite:
@@ -34,8 +35,11 @@ For the source file(s):
 Extend it with additional unittests that improve coverage
 """
 (While it is possible generate tests without the source_files, empirical results suggests a significant reduction in quality as measured by total coverage contributed, up to 30-40% if the source_file context is not provided)
+
 5. Get the coverage contributed by each new testfile. Throw away all those that error'd out or failed to contribute coverage
+
 6. Write the coverage improving tests to the test file, loop 4-6 until some iterations N has been reached. This way of incrementally adding new generated tests to the prompt context pushes the LLM to consider new uncovered test conditions
+
 7. Collect generated tests, each contributing new coverage. Win!
 
 # Finding Target Coverage
@@ -49,3 +53,17 @@ cowboy_lib/coverage.py -> structure that implements all coverage diffing logic
 Each row of the dataset represents a TestModule, a generic container that I use to group testcases. In the case of python, it is either a unit test file or a class implementing many test cases.
 The output column contains the list of unit tests generated as well as the total coverage improvement
 The expected column is the total coverage from the removed tests from the TestModule
+
+# Future Work:
+1. Using LLM to find test -> src file mapping:
+Current coverage diffing approach is not guranteed to find coverage. Could attempt to search for it using LLMs. Have done some preliminary tests, and simply just passing the raw dir tree to a prompt like so:
+"""
+Given the contents of the testfile:
+{test_file_contents}
+
+And the dir tree of the repo:
+{dir_tree}
+
+Find the main source file under test
+"""
+Actually worked pretty well. And can use existing test -> src mappings to bootstrap the LLM
