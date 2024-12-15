@@ -4,7 +4,6 @@ The test generation flow goes something like this:
 1. Create repo
 2. Find all TestModules inside repo. A TestModule is just a container for a set of tests. In Python/Pytest, it is either the source file of the test itself or its a class that implements its testcases as methods. Each TestModule will be associated with a single test file.
 
------------------------------------------------------------------------------------------------------------------------------
 test_file.py
 
 import pytest
@@ -19,7 +18,7 @@ class TestClass:
     ...
   def test_meth2():
     ...
------------------------------------------------------------------------------------------------------------------------------
+
 So for the above, two TestModules will be created, along with their associated tests 
 TM1: test_file.py --(tests)--> test_file.py::test1, test_file.py::test2
 TM2: TestClass    --(tests)--> TestClass::test_meth1, TestClass::test_meth2 
