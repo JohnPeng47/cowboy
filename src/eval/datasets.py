@@ -67,7 +67,7 @@ def persist_rows(row: TestModuleRow, repo_name: str):
 
     # Write row data to file
     file_path = repo_dir / f"{row.tm.name}.json"
-    log.info(f"Writing row data to {file_path}")
+    log.info(f"Writing {repo_name} dataset to {file_path}")
     with open(file_path, "w") as f:
         json.dump(row.to_json(), f, indent=2)
     log.info(f"Successfully wrote row data for {row.tm.name}")
@@ -81,7 +81,7 @@ def read_rows(repo_name: str, limit=5) -> list[TestModuleRow]:
     rows = []
     log.info(f"Reading up to {limit} rows from {repo_dir}")
     for file_path in list(repo_dir.glob("*.json"))[:limit]:
-        log.debug(f"Reading row from {file_path}")
+        log.debug(f"Reading {repo_name} dataset from {file_path}")
         with open(file_path) as f:
             data = json.load(f)
             rows.append(TestModuleRow.from_json(data))

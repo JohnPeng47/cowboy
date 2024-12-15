@@ -1,6 +1,6 @@
 from cowboy_lib.coverage import CoverageResult, TestError, TestCoverage
 from cowboy_lib.repo.repository import PatchFile
-from cowboy_lib.repo.source_file import Function
+from cowboy_lib.repo.source_file import Function, TestFile
 
 from typing import Tuple, List, TYPE_CHECKING
 
@@ -24,7 +24,8 @@ class AugmentAdditiveEvaluator(Evaluator):
         self,
         llm_results: List["StratResult"],
         tm: "TestModule",
-        base_cov: TestCoverage,
+        module_cov: TestCoverage,
+        updated_testfile: TestFile,
         n_times: int = 1,
     ) -> Tuple[
         List[Tuple[Function, TestCoverage]],
@@ -37,21 +38,18 @@ class AugmentAdditiveEvaluator(Evaluator):
         targeted test module, and a baseline coverage to compare against
         """
         test_fp = tm.test_file.path
-        test_results = await self.gen_test_and_diff_coverage(
-            llm_results, base_cov, test_fp, n_times
-        )
         improved, failed, no_improve = await self.process_test_results(
-            test_results, tm, base_cov
+            llm_results, tm, module_cov, updated_testfile
         )
 
         return improved, failed, no_improve
 
-    # questionable decision to make non-existent func Functions ..
     async def process_test_results(
         self,
-        test_results: List[Tuple[CoverageResult, str]],
+        llm_results: List["StratResult"],
         tm: "TestModule",
-        base_cov: TestCoverage,
+        module_cov: TestCoverage,
+        updated_testfile: TestFile,
     ) -> Tuple[
         List[Tuple[Function, TestCoverage]],
         List[Tuple[Function, TestError]],
@@ -65,48 +63,48 @@ class AugmentAdditiveEvaluator(Evaluator):
         failed_tests: List[Tuple[Function, TestError]] = []
         noimprov_tests: List[Function] = []
 
-        for cov_res, cov_diff, test_file in test_results:
-            if cov_diff:
-                new_funcs = self.get_new_funcs(test_file, tm.path)
-                # iterate each generated function and measure if it has coverage
-                # improvement against the base
-                for func in new_funcs:
-                    test_error = cov_res.get_failed(func.name)
-                    if test_error:
-                        log.info(f"[FAILED] Generated Func: {func.name}")
-                        log.info(f"Code: \n{func.to_code()}")
+        for test_contents, test_fp in llm_results:
+            new_funcs = self.get_new_funcs(test_contents, tm.path)
 
-                        failed_tests.append((func, test_error))
-                        continue
+            log.info(f"Generated {len(new_funcs)} new funcs: {new_funcs}")
 
-                    # TODO: make sure that this works for filename TMs as well
-                    og_testfile = self.src_repo.find_file(tm.path).clone()
-                    og_testfile.append(
-                        func.to_code(), class_name=func.scope.name if func.scope else ""
-                    )
+            for func in new_funcs:
+                # collect coverage for one test at a time and compare to module coverage
+                # we have to use the updated testfile because module_cov is based on the updated functions 
+                og_testfile = updated_testfile.clone()
+                og_testfile.append(
+                    func.to_code(), class_name=func.scope.name if func.scope else ""
+                )
+                log.info(f"Patchfile: {og_testfile.to_code()}")
 
-                    patch_file = PatchFile(
-                        path=str(tm.path), patch=og_testfile.to_code()
-                    )
-                    indvtest_cov = await self.run_test(
-                        self.repo_name,
-                        self.run_args,
-                        include_tests=[tm.name],
-                        patch_file=patch_file,
-                        use_cache=False
-                    )
+                patch_file = PatchFile(
+                    path=str(tm.path), patch=og_testfile.to_code()
+                )
+                indvtest_cov = await self.run_test(
+                    self.repo_name,
+                    self.run_args,
+                    include_tests=[tm.name],
+                    patch_file=patch_file,
+                    use_cache=False
+                )
 
-                    # post-neuter module coverage
-                    indv_improve = indvtest_cov.coverage - base_cov
-                    if indv_improve.total_cov.covered > 0:
-                        log.info(f"[IMPROVE] Generated Func: {func.name}")
-                        log.info(f"Code: \n{func.to_code()}")
+                test_error = indvtest_cov.get_failed(func.name)
+                if test_error:
+                    log.info(f"[FAILED] Generated Func: {func.name}")
 
-                        improved_tests.append((func, indv_improve))
-                    else:
-                        log.info(f"[NOIMPROVE] Generated Func: {func.name}")
-                        log.info(f"Code: \n{func.to_code()}")
+                    failed_tests.append((func, test_error))
+                    continue
 
-                        noimprov_tests.append((func, TestCoverage([])))
+                indv_improve = indvtest_cov.get_coverage() - module_cov
+                if indv_improve.total_cov.covered > 0:
+                    log.info(f"[IMPROVE] Generated Func: {func.name}")
+                    # log.info(f"Code: \n{func.to_code()}")
+
+                    improved_tests.append((func, indv_improve))
+                else:
+                    log.info(f"[NOIMPROVE] Generated Func: {func.name}")
+                    # log.info(f"Code: \n{func.to_code()}")
+
+                    noimprov_tests.append((func, TestCoverage([])))
 
         return improved_tests, failed_tests, noimprov_tests

@@ -14,6 +14,7 @@ from cowboy_lib.repo.repository import PatchFile
 from cowboy_lib.repo.source_repo import SourceRepo
 from cowboy_lib.repo.source_file import Function, LintException
 from cowboy_lib.coverage import TestCoverage, TestError
+from cowboy_lib.test_modules import TestModule
 
 from src.test_gen.augment_test.strats import AugmentStratType, AUGMENT_STRATS
 from src.runner.service import RunServiceArgs
@@ -129,44 +130,28 @@ class Composer:
 
         log.info(f"Prompt: \n{prompt}")
 
-        patch_modfile = None
+        updated_patchfile = None
         for i in range(n_times):
-            retries = LLM_RETRIES
-            src_file = None
-            while retries > 0 and not src_file:
-                try:
-                    llm_res = await invoke_llm_async(
-                        prompt,
-                        model=self.model,
-                        n_times=1,
-                    )
-                    src_file = self.strat.parse_llm_res(llm_res[0])
-                except (SyntaxError, ValueError, LintException):
-                    log.info(f"LLM syntax error ... {retries} left")
-                    retries -= 1
-                    continue
+            src_file = await self._llm_generate_with_retry(prompt)
 
-            if not src_file:
-                raise CowboyRunTimeException(
-                    f"LLM generation failed for {self.test_input}"
-                )
-
-            # NEWTODO:MODULECOV -> we need to recalculate the module coverage anew each round 
-            # with the contents of the new patchFile
+            # need to update the contents of test_file to account for new tests that
+            # have been generated
             module_cov = await self.run_test(
                 self.repo_name, 
                 self.run_args, 
                 include_tests=[self.test_input.name],
-                patch_file=patch_modfile,
+                patch_file=updated_patchfile,
             )
-            module_cov = module_cov.get_coverage()
-            log.info(f"Module coverage: {module_cov}")
+            
+            log.info(f"Patchfile: {updated_patchfile}")
 
+            module_cov = module_cov.get_coverage()
             test_result = [StratResult(src_file, self.test_input.path)]
             improved, failed, no_improve = await self.evaluator(
                 test_result,
                 self.test_input,
                 module_cov,
+                self.test_input.test_file,
                 n_times=n_times,
             )
             improved_tests.extend(improved)
@@ -191,10 +176,11 @@ class Composer:
             no_improve_tests.extend(no_improve)
 
             # NEWTODO: UPDATE HERE WITH NEW GENERATED PATCHFILE
-            patch_modfile = PatchFile(
+            updated_patchfile = PatchFile(
                 path=self.test_input.path,
                 patch=self.test_input.test_file.to_code(),
             )
+            prompt = self.strat.update_prompt(self.test_input.test_file.to_code())
             
         return improved_tests, failed_tests, no_improve_tests
 
@@ -207,3 +193,31 @@ class Composer:
             return await self.gen_test_serial_additive(n_times)
         elif isinstance(self.evaluator, AugmentParallelEvaluator):
             return await self.gen_test_parallel(n_times)
+
+    async def _llm_generate_with_retry(self, prompt: str) -> str:
+        """
+        Retry LLM generation with specified number of retries.
+        Returns the parsed source file or raises CowboyRunTimeException.
+        """
+        retries = LLM_RETRIES
+        src_file = None
+        
+        while retries > 0 and not src_file:
+            try:
+                llm_res = await invoke_llm_async(
+                    prompt,
+                    model=self.model,
+                    n_times=1,
+                )
+                src_file = self.strat.parse_llm_res(llm_res[0])
+            except (SyntaxError, ValueError, LintException):
+                log.info(f"LLM syntax error ... {retries} left")
+                retries -= 1
+                continue
+
+        if not src_file:
+            raise CowboyRunTimeException(
+                f"LLM generation failed for {self.test_input}"
+            )
+        
+        return src_file

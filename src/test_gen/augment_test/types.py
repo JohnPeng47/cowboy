@@ -54,16 +54,36 @@ class Prompt:
         # encoding = tiktoken.encoding_for_model(self._model_name)
         return num_tokens_from_string(prompt, "cl100k_base")
 
+    def _check_token_length(self, line: str) -> bool:
+        """
+        Checks if adding the line would exceed the maximum token length.
+        Returns True if line can be added, False otherwise.
+        """
+        str_len = self._tokenize(line)
+        return self._current_len + str_len <= self._max_len
+
     def insert_line(self, keyword: str, line: str, preamble: str = "") -> bool:
         if keyword not in self._keywords:
             raise ValueError(f"Keyword {keyword} not found in prompt")
 
-        str_len = self._tokenize(line)
-        if self._current_len + str_len > self._max_len:
+        if not self._check_token_length(line):
             return False
-        else:
-            self._keyword_dict[keyword] += preamble + "\n" + line + "\n"
-
+        
+        self._keyword_dict[keyword] += preamble + "\n" + line + "\n"
+        return True
+    
+    def update_line(self, keyword: str, line: str, preamble: str = "") -> bool:
+        """
+        Updates the content for a keyword, replacing existing content.
+        Returns True if update successful, False if token limit would be exceeded.
+        """
+        if keyword not in self._keywords:
+            raise ValueError(f"Keyword {keyword} not found in prompt")
+            
+        if not self._check_token_length(line):
+            return False
+            
+        self._keyword_dict[keyword] = preamble + "\n" + line + "\n"
         return True
 
     def get_prompt(self) -> str:

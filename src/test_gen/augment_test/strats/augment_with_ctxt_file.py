@@ -3,9 +3,9 @@ from .prompt import AugmentTestPromptWithCtxt
 from ..types import CtxtWindowExceeded
 from ..utils import get_current_git_commit
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, List
 
-from src.logger import testgen_logger
+from src.logger import testgen_logger as log
 
 
 class AugmentClassWithCtxtStrat(AugmentTestStrategy):
@@ -13,7 +13,6 @@ class AugmentClassWithCtxtStrat(AugmentTestStrategy):
     Provides the src code context from the source code file targeted by the
     test_module
     """
-
     def build_prompt(self) -> AugmentTestPromptWithCtxt:
         prompt = AugmentTestPromptWithCtxt()
         curr_commit = get_current_git_commit(self.src_repo.repo_path)
@@ -26,19 +25,27 @@ class AugmentClassWithCtxtStrat(AugmentTestStrategy):
         # TODO: how to narrow the scope of this to class or even function
         # have ref to func/class node in TargetCode
         for fp in self.test_module.targeted_files():
-            testgen_logger.info(f"Src file ctxt of {self.test_module.name}: {fp}")
+            log.info(f"Src file ctxt of {self.test_module.name}: {fp}")
             file = self.src_repo.find_file(fp)
             code_fit = prompt.insert_line("file_contents", file.to_code())
 
             if not code_fit:
-                testgen_logger.warn(f"File {fp} too large to fit in prompt")
+                log.warn(f"File {fp} too large to fit in prompt")
                 continue
 
         if not self.test_module.targeted_files():
-            testgen_logger.warn(
+            log.warn(
                 f"No src files targeted by {self.test_module.name} found")
 
+        self.prompt = prompt
         return prompt.get_prompt()
+    
+    def update_prompt(self, new_testfile: str):
+        self.prompt.update_line("test_code", new_testfile)
+        
+        log.info(f"Updating prompt test_code to: {new_testfile}")
+
+        return self.prompt.get_prompt()
 
     def get_test_code(self, test_file, nodes):
         test_code = ""
@@ -48,7 +55,7 @@ class AugmentClassWithCtxtStrat(AugmentTestStrategy):
                     node.name, node_type=node.node_type
                 ).to_code()
             except Exception as e:
-                testgen_logger.error(f"Error: {e}")
+                log.error(f"Error: {e}")
                 continue
 
         return test_code

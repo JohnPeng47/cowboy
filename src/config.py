@@ -33,7 +33,7 @@ MAX_CTXT_SIZE = 10000
 
 # Run test settings 
 RUN_TEST = "app"
-TESTCONFIG_ROOT = "tests/configs"
+TESTCONFIG_ROOT = "src/eval/configs"
 
 LOG_DIR = "log"
 REPOS_ROOT = "repos"

@@ -35,7 +35,7 @@ class AugmentParallelEvaluator(Evaluator):
         targeted test module, and a baseline coverage to compare against
         """
         test_fp = tm.test_file.path
-        test_results = await self.gen_test_and_diff_coverage(
+        test_results = await self.diff_coverage(
             llm_results, base_cov, test_fp, n_times
         )
         improved, failed, no_improve = await self.process_test_results(

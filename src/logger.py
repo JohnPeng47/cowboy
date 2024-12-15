@@ -6,32 +6,6 @@ from datetime import datetime
 import pytz
 import sys
 
-# class CowboyLogger:
-#     def __init__(self, logger: logging.Logger):
-#         self.logger = logging.getLogger("testgen_logger")
-#         self.logger.setLevel(logging.INFO)
-#         self.logger.addHandler(get_file_handler(file_prefix="testgen"))
-#         self.logger.addHandler(get_console_handler())
-
-#     def _parse_args(self, args):
-#         return ", ".join([str(a) for a in args])
-    
-#     def info(self, *args):
-#         self.logger.info(self._parse_args(args))
-
-#     def warning(self, *args):
-#         self.logger.warning(self._parse_args(args))
-
-#     def error(self, *args):
-#         self.logger.error(self._parse_args(args))
-
-#     def debug(self, *args):
-#         self.logger.debug(self._parse_args(args))
-
-#     def critical(self, *args):
-#         self.logger.critical(self._parse_args(args))
-        
-
 def converter(timestamp):
     dt = datetime.fromtimestamp(timestamp, tz=pytz.utc)
     return dt.astimezone(pytz.timezone("US/Eastern")).timetuple()
@@ -42,7 +16,6 @@ formatter = logging.Formatter(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 formatter.converter = converter
-
 
 def get_file_handler(log_dir=LOG_DIR, file_prefix: str = ""):
     """
@@ -56,7 +29,6 @@ def get_file_handler(log_dir=LOG_DIR, file_prefix: str = ""):
     file_handler.setFormatter(formatter)
     return file_handler
 
-
 def get_console_handler():
     """
     Returns a console handler for logging.
@@ -66,10 +38,40 @@ def get_console_handler():
     console_handler.setFormatter(formatter)
     return console_handler
 
+
+def get_logfile_id(log_dir=LOG_DIR, file_prefix: str = "") -> tuple[str, int]:
+    """
+    Returns a tuple of (timestamp, next_id) for `file_prefix` log files.
+    """
+    timestamp = datetime.now().strftime("%Y-%m-%d")
+    log_subdir = os.path.join(log_dir, file_prefix, timestamp)
+    os.makedirs(log_subdir, exist_ok=True)
+    
+    existing_logs = [f for f in os.listdir(log_subdir) if f.endswith(".log")]
+    next_number = 0
+    if existing_logs:
+        numbers = [int(f.split(".")[0]) for f in existing_logs]
+        next_number = max(numbers) + 1
+        
+    return timestamp, next_number
+
+def get_incremental_file_handler(log_dir=LOG_DIR, file_prefix: str = ""):
+    """
+    Returns a file handler that creates logs in timestamped directories with incremental filenames.
+    Directory structure: log_dir/file_prefix/YYYY-MM-DD/0.log, 1.log, etc.
+    """
+    timestamp, next_number = get_logfile_id(log_dir, file_prefix)
+    log_subdir = os.path.join(log_dir, file_prefix, timestamp)
+    
+    # Create new log file with incremental number
+    file_name = f"{next_number}.log"
+    file_handler = logging.FileHandler(os.path.join(log_subdir, file_name))
+    file_handler.setFormatter(formatter)
+    return file_handler
+
 testgen_logger = logging.getLogger("testgen_logger")
 testgen_logger.setLevel(logging.INFO)
-testgen_logger.addHandler(get_file_handler(file_prefix="testgen"))
-# testgen_logger.addHandler(get_console_handler())
+testgen_logger.addHandler(get_incremental_file_handler(file_prefix="testgen"))
 
 buildtm_logger = logging.getLogger("buildtm_logger")
 buildtm_logger.setLevel(logging.INFO)
@@ -79,15 +81,10 @@ buildtm_logger.addHandler(get_console_handler())
 sync_repo = logging.getLogger("sync_repo")
 sync_repo.setLevel(logging.INFO)
 sync_repo.addHandler(get_file_handler(file_prefix="syncrepo"))
-# sync_repo.addHandler(get_console_handler())
-
-testrunner_logger = logging.getLogger("testrunner_logger")
-testrunner_logger.setLevel(logging.INFO)
-testrunner_logger.addHandler(get_file_handler(file_prefix="syncrepo"))
 
 master_logger = logging.getLogger("master_logger")
 # Add handlers from all other loggers
-for logger in [testgen_logger, buildtm_logger, sync_repo, testrunner_logger]:
+for logger in [testgen_logger, buildtm_logger, sync_repo]:
     for handler in logger.handlers:
         master_logger.addHandler(handler)
 
@@ -95,7 +92,7 @@ for logger in [testgen_logger, buildtm_logger, sync_repo, testrunner_logger]:
 if not any(isinstance(h, logging.StreamHandler) for h in master_logger.handlers):
     master_logger.addHandler(get_console_handler())
 
-loggers = [testgen_logger, sync_repo, buildtm_logger, testrunner_logger, master_logger]
+loggers = [testgen_logger, sync_repo, buildtm_logger, master_logger]
 
 
 def set_log_level(level=logging.INFO):

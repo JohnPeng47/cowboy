@@ -121,6 +121,7 @@ async def neuter_repo(
                 )
                 persist_rows(row, repo_name)
 
+                # TODO: hitting limit for row size here with braintrust
                 # dataset.update(
                 #     tm.name,
                 #     TestModuleRow(

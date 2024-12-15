@@ -1,0 +1,73 @@
+Coverage Improve : 15
+    def test_job_event_commit_complete_but_repo_deactivated(self):
+        commit_sha = "dc5b582e1bc29a76eae4fa02bb9a38ee0ab2e927"
+        commit = CommitFactory(
+            author=self.repo.author,
+            repository=self.repo,
+            commitid=commit_sha,
+            state=Commit.CommitStates.COMPLETE,
+        )
+        self.repo.active = False
+        self.repo.save()
+        response = self._post_event_data(
+            event=GitLabWebhookEvents.JOB,
+            data={
+                "object_kind": "build",
+                "project_id": self.repo.service_id,
+                "build_status": "success",
+                "sha": commit_sha,
+            },
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data == WebhookHandlerErrorMessages.SKIP_PROCESSING
+Coverage Improve : 1
+    def test_system_hook_project_update_no_owner_token(self):
+        owner = OwnerFactory(service="gitlab_enterprise", oauth_token=None)
+        repo = RepositoryFactory(author=owner, service_id=uuid.uuid4(), active=True)
+        data = {
+            "event_name": "project_update",
+            "project_id": repo.service_id,
+            "name": "UpdatedProjectName",
+            "path_with_namespace": f"{owner.username}/updatedprojectname",
+        }
+        response = self._post_event_data(event=GitLabWebhookEvents.SYSTEM, data=data)
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+Coverage Improve : 1
+    def test_job_event_commit_complete_but_repo_deactivated(self):
+        commit_sha = "dc5b582e1bc29a76eae4fa02bb9a38ee0ab2e927"
+        commit = CommitFactory(
+            author=self.repo.author,
+            repository=self.repo,
+            commitid=commit_sha,
+            state=Commit.CommitStates.COMPLETE,
+        )
+        self.repo.active = False
+        self.repo.save()
+        response = self._post_event_data(
+            event=GitLabWebhookEvents.JOB,
+            data={
+                "object_kind": "build",
+                "project_id": self.repo.service_id,
+                "build_status": "success",
+                "sha": commit_sha,
+            },
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data == WebhookHandlerErrorMessages.SKIP_PROCESSING
+Coverage Improve : 17
+    def test_merge_request_event_unsupported_action(self):
+        pullid = 3
+        unsupported_action = "reopened"
+        response = self._post_event_data(
+            event=GitLabWebhookEvents.MERGE_REQUEST,
+            data={
+                "object_kind": "merge_request",
+                "object_attributes": {
+                    "action": unsupported_action,
+                    "target_project_id": self.repo.service_id,
+                    "iid": pullid,
+                },
+            },
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert "Unhandled Gitlab webhook merge_request action" in str(response.data)

@@ -3,16 +3,15 @@ from cowboy_lib.repo.repository import PatchFile
 from cowboy_lib.repo.source_file import Function, TestFile
 
 from src.runner.service import RunServiceArgs
-from src.logger import testgen_logger
-from typing import Callable, Tuple, List, TYPE_CHECKING
+from src.logger import testgen_logger as log
 
+from pathlib import Path
+from abc import ABC, abstractmethod
+from typing import Callable, Tuple, List, TYPE_CHECKING
 if TYPE_CHECKING:
     from test_gen.augment_test.types import StratResult
     from cowboy_lib.test_modules import TestModule
     from cowboy_lib.repo.source_repo import SourceRepo
-
-from pathlib import Path
-from abc import ABC, abstractmethod
 
 
 class Evaluator(ABC):
@@ -30,46 +29,44 @@ class Evaluator(ABC):
         self.run_test = run_test
         self.tm = tm
 
-    async def gen_test_and_diff_coverage(
+    async def diff_coverage(
         self,
         strat_results: List["StratResult"],
-        base_cov: TestCoverage, # NEWTODO: convert this to modulecov
+        module_cov: TestCoverage, # NEWTODO: convert this to modulecov
         test_fp: Path,
         n_times: int = 1,
     ) -> List[Tuple[CoverageResult, TestCoverage]]:
         """
-        Does two runs:
-        1. Run to get coverage baseline
-        2. Run with generated test case
-        Return diff in coverage, and generated test case
+        Finds the coverage difference between the module coverage and the coverage
         """
         test_results = []
         total_cost = 0
-
+        
         # WARNING: for some reason failures here are not recorded fully for every new individual
         # that is generate. Possibly due to failures cascading?
         # NEWTODO: why not run against module coverage here?
         for i, (test_file, test_funcs) in enumerate(strat_results, start=1):
             patch_file = PatchFile(path=test_fp, patch=test_file)
             # NEWTODO:MODULECOV need to replace this with module coverage
-            cov_ptched = await self.run_test(
+            newtest_cov = await self.run_test(
                 self.repo_name, 
                 self.run_args, 
                 include_tests=[self.tm.name],
                 patch_file=patch_file, 
                 use_cache=False
             )
-            cov_diff = cov_ptched.coverage - base_cov
+            cov_diff = newtest_cov.get_coverage() - module_cov
             if cov_diff.total_cov.covered < 0:
-                testgen_logger.info(f"Negative coverage, skipping")
+                log.info(f"Negative coverage, skipping")
                 continue
             # TODO: this covered number is off check
             # NEWTODO: why can this number be negative?
-            # testgen_logger.info(f"")
-            testgen_logger.info(
+            log.info(f"Module cov: {module_cov}")
+            log.info(f"Newtest cov: {newtest_cov.get_coverage()}")
+            log.info(
                 f"New coverage from generated tests: {cov_diff.total_cov.covered}"
             )
-            test_results.append((cov_ptched, cov_diff, test_file))
+            test_results.append((newtest_cov, cov_diff, test_file))
 
         return test_results
 
@@ -83,7 +80,7 @@ class Evaluator(ABC):
         """
         new_testfile = TestFile(lines=new_testfile.split("\n"), path=str(test_fp))
         old_testfile: TestFile = self.src_repo.find_file(test_fp)
-        new_funcs = old_testfile.new_test_funcs(new_testfile)
+        new_funcs = old_testfile.diff_test_funcs(new_testfile)
 
         return new_funcs
 
@@ -92,7 +89,7 @@ class Evaluator(ABC):
         self,
         llm_results: List["StratResult"],
         tm: "TestModule",
-        base_cov: CoverageResult,
+        module_cov: CoverageResult,
         n_times: int = 1,
     ):
         raise NotImplementedError

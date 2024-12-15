@@ -13,11 +13,18 @@ from pathlib import Path
 from typing import List, Tuple
 import json
 
+class RepoConfigException(Exception):
+    pass
+
 
 def get_repo_config(repo_name: str) -> RepoConfig:
-    with open(Path(TESTCONFIG_ROOT) / f"{repo_name}.json", "r") as f:
-        return RepoConfig(**json.load(f))   
-
+    filename = f"{repo_name}.json"
+    with open(Path(TESTCONFIG_ROOT) / filename, "r") as f:
+        config = RepoConfig(**json.load(f))
+        if config["repo_name"] != repo_name:
+            raise RepoConfigException(f"Config.repo_name must be the same as the filename {filename}")
+        
+        return config
 
 @cache_test_run
 async def run_test(
