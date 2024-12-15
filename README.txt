@@ -72,8 +72,6 @@ Simple instructions:
 - this will run a target 
 3. Run an eval `python test_eval_dataset.py
 
-
-
 # Future Work:
 1. Using LLM to find test -> src file mapping:
 Current coverage diffing approach is not guranteed to find coverage. Could attempt to search for it using LLMs. Have done some preliminary tests, and simply just passing the raw dir tree to a prompt like so:
