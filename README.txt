@@ -49,10 +49,31 @@ The reason to diff the test lines against the TestModule rather than the whole r
 # Code Highlights
 cowboy_lib/coverage.py -> structure that implements all coverage diffing logic
 
-# Dataset:
-Each row of the dataset represents a TestModule, a generic container that I use to group testcases. In the case of python, it is either a unit test file or a class implementing many test cases.
-The output column contains the list of unit tests generated as well as the total coverage improvement
-The expected column is the total coverage from the removed tests from the TestModule
+# How to run:
+Here are run -> 
+Simple instructions:
+1. Define repo config in src/eval/configs
+
+{
+    "repo_name": "codecovapi-neutered",                    # Name that is used to refer to this repo config in subsequent steps
+                                                           # and should correspond with the name of the config
+    "url": "https://github.com/codecov/codecov-api.git",   # Repo URL
+    "cloned_folders": ["/home/ubuntu/codecov-api"],        # Local path to your git repo
+    "source_folder": "/home/ubuntu/codecov-api",           # Local path to your git repo
+    
+    "python_conf": {                                       # Pytest Specific Configs
+        "cov_folders": ["./"],                              
+        "interp": "docker-compose exec api python",
+        "test_folder": ".",
+        "pythonpath": ""
+    }
+}
+
+2. Generate a dataset for the repo defined above `python -m src.eval.create_dataset <repo_name>`
+- this will run a target 
+3. Run an eval `python test_eval_dataset.py
+
+
 
 # Future Work:
 1. Using LLM to find test -> src file mapping:
