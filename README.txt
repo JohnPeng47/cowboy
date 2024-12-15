@@ -25,6 +25,25 @@ TM2: TestClass    --(tests)--> TestClass::test_meth1, TestClass::test_meth2
 
 3. For each test TestModule, we then attempt to build a test_file -> source_file mapping. This is accomplished by a novel coverage diffing algorithm that iterates through each test in a TestModule and calculates the line coverage difference (set diff, ie. [1,2,3] - [1,2] = 3) between itself and the TestModule. Summing these line coverages together, we get a set of source file lines that are *uniquely* covered by the tests in the TestModule (more notes on this in following section)
 
+coverage diffing:
+TestModule.py
+def test1():
+  ...
+
+def test2():
+  ...
+
+Running test coverage gets *for TestModule* gives us the following
+TestModule.py coverage:
+??? -> f1.py = [1,2,3,4,5]
+??? -> f2.py = [1,2,3]
+
+To find out the test file -> src file mapping (???), we can do:
+mod_cov - (mod_cov - test_cov) = test_cov
+
+mod_cov - (mod_cov - test1_cov) = TestModule.py coverage:
+                                  test1.py -> f1.py = [1,2,3,4,5]
+
 4. For each TestModule, prompt a LLM with the following to generate a batch of tests
 """
 Given the following existing test suite:
