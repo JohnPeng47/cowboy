@@ -1,4 +1,11 @@
-The test generation flow goes something like this:
+Note:
+To generate reliable tests from a LLM, we need to feed it two pieces of code context:
+1) An existing test suite
+2) The source file that the test is covering
+
+1) is pretty much given, but 2) requires some weird coverage diffing tricks in step 3. to obtain
+
+Here are the steps:
 1. Create repo
 2. Find all TestModules inside repo. A TestModule is just a container for a set of tests. In Python/Pytest, it is either the source file of the test itself or its a class that implements its testcases as methods. Each TestModule will be associated with a single test file.
 
