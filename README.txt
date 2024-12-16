@@ -1,5 +1,11 @@
 # What is this
 This is a tool that can be used to automatically generate unit test cases with LLMs to extend existing unit tests suites, with zero manual interaction apart from some initial configuration
+
+# Show me the results
+Generated test cases along with their coverage improvement are inside:
+src/eval/output/codecovapi-neutered/
+
+# Tell me more ..
 The test generation flow goes something like this:
 1. Create repo
 2. Find all TestModules inside repo. A TestModule is just a container for a set of tests. In Python/Pytest, it is either the source file of the test itself or its a class that implements its testcases as methods. Each TestModule will be associated with a single test file.
