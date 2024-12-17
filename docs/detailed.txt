@@ -1,11 +1,4 @@
-Note:
-To generate reliable tests from a LLM, we need to feed it two pieces of code context:
-1) An existing test suite
-2) The source file that the test is covering
-
-1) is pretty much given, but 2) requires some weird coverage diffing tricks in step 3. to obtain
-
-Here are the steps:
+Here are the steps taken by Cowboy to generate a unit test:
 1. Create repo
 2. Find all TestModules inside repo. A TestModule is just a container for a set of tests. In Python/Pytest, it is either the source file of the test itself or its a class that implements its testcases as methods. Each TestModule will be associated with a single test file.
 
@@ -28,28 +21,7 @@ So for the above, two TestModules will be created, along with their associated t
 TM1: test_file.py --(tests)--> test_file.py::test1, test_file.py::test2
 TM2: TestClass    --(tests)--> TestClass::test_meth1, TestClass::test_meth2 
 
-3. For each test TestModule, we then attempt to build a test_file -> source_file mapping. This is accomplished by a novel coverage diffing algorithm that iterates through each test in a TestModule and calculates the line coverage difference (set diff, ie. [1,2,3] - [1,2] = 3) between itself and the TestModule. Summing these line coverages together, we get a set of source file lines that are *uniquely* covered by the tests in the TestModule (more notes on this in following section)
-
-coverage diffing:
-TestModule.py
-def test1():
-  ...
-
-def test2():
-  ...
-
-Running test coverage gets *for TestModule* gives us the following
-TestModule.py coverage:
-??? -> f1.py = [1,2,3,4,5]
-??? -> f2.py = [1,2,3]
-
-To find out the test file -> src file mapping (???), we can do:
-mod_cov - (mod_cov - test_cov) = test_cov
-
-mod_cov - (mod_cov - test1_cov) = TestModule.py coverage:
-                                  test1.py -> f1.py = [1,2,3,4,5]
-
-4. For each TestModule, prompt a LLM with the following to generate a batch of tests
+3. For each TestModule, prompt a LLM with the following to generate a batch of tests
 """
 Given the following existing test suite:
 {existing_tests}
@@ -57,10 +29,9 @@ For the source file(s):
 {source_file for source_file in from_step3}
 Extend it with additional unittests that improve coverage
 """
-(While it is possible generate tests without the source_files, empirical results suggests a significant reduction in quality as measured by total coverage contributed, up to 30-40% if the source_file context is not provided)
 
-5. Get the coverage contributed by each new testfile. Throw away all those that error'd out or failed to contribute coverage
+4. Get the coverage contributed by each new testfile. Throw away all those that error'd out or failed to contribute coverage
 
-6. Write the coverage improving tests to the test file, loop 4-6 until some iterations N has been reached. This way of incrementally adding new generated tests to the prompt context pushes the LLM to consider new uncovered test conditions
+5. Write the coverage improving tests to the test file, loop 4-6 until some iterations N has been reached. This way of incrementally adding new generated tests to the prompt context pushes the LLM to consider new uncovered test conditions
 
-7. Collect generated tests, each contributing new coverage. Win!
+6. Collect generated tests, each contributing new coverage. Win!
