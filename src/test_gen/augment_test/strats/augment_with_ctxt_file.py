@@ -25,6 +25,12 @@ class AugmentClassWithCtxtStrat(AugmentTestStrategy):
         # TODO: how to narrow the scope of this to class or even function
         # have ref to func/class node in TargetCode
         for fp in self.test_module.targeted_files():
+            # NEWTODO: we should remove this check and rely on omit in .coveragerc to filter out unwanted test files
+            # in the coverage
+            if fp.match("tests/*") or fp.match("*/tests/*") or fp.match("test_*"):
+                log.warn(f"Skipping test file {fp} because test file")
+                continue
+
             log.info(f"Src file ctxt of {self.test_module.name}: {fp}")
             file = self.src_repo.find_file(fp)
             code_fit = prompt.insert_line("file_contents", file.to_code())

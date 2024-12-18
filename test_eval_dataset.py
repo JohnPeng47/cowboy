@@ -1,4 +1,4 @@
-from src.eval.eval_augment import eval_dataset
+from eval.eval_dataset import eval_dataset
 import asyncio
 
 asyncio.run(

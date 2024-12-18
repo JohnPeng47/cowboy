@@ -93,8 +93,8 @@ async def get_tm_target_coverage(
         # part1: collect the coverage of a single module only
         include_tests=only_module,
         # stream = True,
-        use_cache = False,
-        delete_last = False
+        use_cache=False,
+        delete_last=False
     )
     log.info(f"BaseCov: {base_cov}")
     log.info(f"ModuleCov: {module_cov.get_coverage()}")
@@ -115,8 +115,8 @@ async def get_tm_target_coverage(
                 exclude_tests=[(test, tm.test_file.path)],
                 include_tests=only_module,
                 # stream = True,
-                use_cache = False,
-                delete_last = False
+                use_cache=False,
+                delete_last=False
             )
             coroutines.append(task)
 

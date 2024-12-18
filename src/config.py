@@ -1,5 +1,6 @@
 from starlette.config import Config
 from enum import Enum
+from pathlib import Path
 
 config = Config(".env")
 
@@ -33,17 +34,17 @@ MAX_CTXT_SIZE = 10000
 
 # Run test settings 
 RUN_TEST = "app"
-TESTCONFIG_ROOT = "src/eval/configs"
+TESTCONFIG_ROOT = Path("src/eval/configs")
 
 LOG_DIR = "log"
 REPOS_ROOT = "repos"
 AWS_REGION = "us-east-2"
 
-# braintrust settings
+# braintrust settingss
 BT_PROJECT = "Cowboy"
 BRAINTRUST_API_KEY = config("BRAINTRUST_API_KEY")
 
-EVAL_DATA_ROOT = "src/eval/datasets"
+EVAL_DATA_ROOT = Path("src/eval/datasets")
 
 class Language(str, Enum):
     """

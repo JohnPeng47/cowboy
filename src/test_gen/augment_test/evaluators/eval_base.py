@@ -32,7 +32,7 @@ class Evaluator(ABC):
     async def diff_coverage(
         self,
         strat_results: List["StratResult"],
-        module_cov: TestCoverage, # NEWTODO: convert this to modulecov
+        module_cov: TestCoverage,
         test_fp: Path,
         n_times: int = 1,
     ) -> List[Tuple[CoverageResult, TestCoverage]]:
@@ -42,25 +42,21 @@ class Evaluator(ABC):
         test_results = []
         total_cost = 0
         
-        # WARNING: for some reason failures here are not recorded fully for every new individual
-        # that is generate. Possibly due to failures cascading?
-        # NEWTODO: why not run against module coverage here?
         for i, (test_file, test_funcs) in enumerate(strat_results, start=1):
             patch_file = PatchFile(path=test_fp, patch=test_file)
-            # NEWTODO:MODULECOV need to replace this with module coverage
             newtest_cov = await self.run_test(
                 self.repo_name, 
                 self.run_args, 
                 include_tests=[self.tm.name],
                 patch_file=patch_file, 
-                use_cache=False
+                use_cache=False,
+                delete_last=False
             )
             cov_diff = newtest_cov.get_coverage() - module_cov
             if cov_diff.total_cov.covered < 0:
                 log.info(f"Negative coverage, skipping")
                 continue
             # TODO: this covered number is off check
-            # NEWTODO: why can this number be negative?
             log.info(f"Module cov: {module_cov}")
             log.info(f"Newtest cov: {newtest_cov.get_coverage()}")
             log.info(

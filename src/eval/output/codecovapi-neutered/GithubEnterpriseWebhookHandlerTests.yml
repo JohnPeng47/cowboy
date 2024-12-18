@@ -1,0 +1,18 @@
+git_hash: 2a5d9982780826492491d3d80ced2bf5dda0835c
+tests:
+- name: GithubEnterpriseWebhookHandlerTests.test_repo_privatized_event_triggers_repository_privatized_logic
+  coverage_added: 236
+  test_module: GithubEnterpriseWebhookHandlerTests
+  code: "    def test_repo_privatized_event_triggers_repository_privatized_logic(self):\n\
+    \        owner = OwnerFactory(\n            integration_id=4850403,\n        \
+    \    service_id=97968493,\n            service=Service.GITHUB_ENTERPRISE.value,\n\
+    \        )\n        repo = RepositoryFactory(\n            author=owner,\n   \
+    \         service_id=12345,\n            active=True,\n            private=False,\n\
+    \        )\n        self._post_event_data(\n            event=GitHubWebhookEvents.REPOSITORY,\n\
+    \            data={\n                \"action\": \"privatized\",\n           \
+    \     \"repository\": {\n                    \"id\": repo.service_id,\n      \
+    \              \"name\": \"testrepo\",\n                    \"private\": True,\n\
+    \                    \"default_branch\": \"master\",\n                    \"owner\"\
+    : {\"id\": owner.service_id},\n                },\n            },\n        )\n\
+    \n        repo.refresh_from_db()\n        assert (\n            repo.private ==\
+    \ True\n        ), \"Repository should be marked as private after privatized event\""

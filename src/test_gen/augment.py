@@ -44,7 +44,7 @@ async def augment_test(
     tm = tm_model.serialize(src_repo)
     run_args = RunServiceArgs(user_id=curr_user.id, task_queue=task_queue)
 
-    ## NEWTODO: currently broken since it is still using baseCov
+    # NEWTODO: currently broken since it is still using baseCov
     base_cov = repo.base_cov
     composer = Composer(
         repo_name=repo.repo_name,
@@ -61,10 +61,6 @@ async def augment_test(
     improved_tests, failed_tests, no_improve_tests = await composer.generate_test(
         n_times=AUGMENT_ROUNDS
     )
-
-    # NEWTODO: should add some options for other output formats
-    # write all improved test to source file and check out merge on repo
-    # serialize tm first
     test_results = []
     test_file = tm.test_file
     for improved, cov in improved_tests:

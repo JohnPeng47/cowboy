@@ -1,90 +1,92 @@
-import os
 import json
-from pathlib import Path
+from typing import Dict, List, Optional
 
+from src.repo.models import RepoConfig
 from src.config import EVAL_DATA_ROOT
 from cowboy_lib.coverage import TestCoverage
 from cowboy_lib.test_modules import TestModule
-from typing import Dict
-
 from pydantic import BaseModel
-from src.logger import master_logger as log
 
-DATASET_ROOT = Path(EVAL_DATA_ROOT)
+from .db import get_tm, persist_tm, get_repo_config
 
-# NEWTODO: move repo_config into INput
 class TestModuleRow(BaseModel):
-    tm: TestModule
+    name: str
     file_content: str
-    # module_cov: TestCoverage # THEE
-    # base_cov: TestCoverage
     repo_config: Dict
     expected: int = 0
+    tags: List[str] = []
+    # removed_tests: List[str]
 
     class Config:
         arbitrary_types_allowed = True
 
-    def to_json(self):
+    def get_tm(self) -> Optional[TestModule]:
+        return get_tm(self.repo_config["repo_name"], self.name)
+        
+    def to_json(self) -> Dict:
         return {
             "input": {
-                "tm": self.tm.to_json(),
+                "name": self.name,
                 "file_content": self.file_content,
-                # "module_cov": self.module_cov.serialize(),
-                # "base_cov": self.base_cov.serialize(),
                 "repo_config": self.repo_config
             },
             "expected": self.expected,
+            "metadata": {},
+            "tags": self.tags
         }
+
+    def persist(self, tm: TestModule):
+        repo_name = self.repo_config["repo_name"]
+        repo_dir = EVAL_DATA_ROOT / repo_name
+        repo_dir.mkdir(exist_ok=True)
+
+        # Write the row data
+        file_path = repo_dir / f"{self.name}.json"
+        with open(file_path, "w") as f:
+            json.dump(self.to_json(), f, indent=2)
+
+        persist_tm(tm)
     
     @classmethod
-    def from_json(cls, data):
+    def from_json(cls, data) -> "TestModuleRow":
         input = data["input"]
 
         return cls(
-            tm=TestModule.from_json(input["tm"]),
+            name=input["name"],
             file_content=input["file_content"],
-            # base_cov=TestCoverage.deserialize(input["base_cov"]),
-            # module_cov=TestCoverage.deserialize(input["module_cov"]),
             repo_config=input["repo_config"],
-            expected=data["expected"]
+            expected=data["expected"],
+            tags=data["tags"]
         )
     
     @classmethod
-    def from_json2(cls, input):
+    def from_json2(cls, input) -> "TestModuleRow":
+
         return cls(
-            tm=TestModule.from_json(input["tm"]),
+            name=input["name"],
             file_content=input["file_content"],
-            # base_cov=TestCoverage.deserialize(input["base_cov"]),
-            # module_cov=TestCoverage.deserialize(input["module_cov"]),
             repo_config=input["repo_config"],
-            # expected=data["expected"]
+            # CARE: we dont need tags for when we instantiate this object in 
+            # eval_augment, only in when we use it to initialize the dataset
+            # Prolly a bad design here to have same object have two different uses
+            # tags=input["tags"],
         )
-
-
-def persist_rows(row: TestModuleRow, repo_name: str):
-    repo_dir = DATASET_ROOT / repo_name
-    repo_dir.mkdir(exist_ok=True)
-
-    # Write row data to file
-    file_path = repo_dir / f"{row.tm.name}.json"
-    log.info(f"Writing {repo_name} dataset to {file_path}")
-    with open(file_path, "w") as f:
-        json.dump(row.to_json(), f, indent=2)
-    log.info(f"Successfully wrote row data for {row.tm.name}")
-
-def read_rows(repo_name: str, limit=5) -> list[TestModuleRow]:
-    repo_dir = DATASET_ROOT / repo_name
+    
+def read_rows(repo_name: str, limit=5) -> List["TestModuleRow"]:
+    """
+    Read TestModuleRows from disk
+    """
+    repo_dir = EVAL_DATA_ROOT / repo_name
     if not repo_dir.exists():
-        log.warning(f"Dataset directory {repo_dir} does not exist")
-        return []
+        raise ValueError(f"Dataset directory {repo_dir} does not exist")
 
     rows = []
-    log.info(f"Reading up to {limit} rows from {repo_dir}")
+    print(f"Reading up to {limit} rows from {repo_dir}")
     for file_path in list(repo_dir.glob("*.json"))[:limit]:
-        log.debug(f"Reading {repo_name} dataset from {file_path}")
+        print(f"Reading {repo_name} dataset from {file_path}")
         with open(file_path) as f:
             data = json.load(f)
             rows.append(TestModuleRow.from_json(data))
 
-    log.info(f"Successfully read {len(rows)} rows from {repo_dir}")
+    print(f"Successfully read {len(rows)} rows from {repo_dir}")
     return rows

@@ -12,8 +12,6 @@ from .eval_base import Evaluator
 
 from src.logger import testgen_logger as log
 
-
-# NEWTODO: everything under here can be converted to module coverage
 class AugmentAdditiveEvaluator(Evaluator):
     """
     Iteratively evals test results and re-prompts with partially successful
@@ -85,7 +83,8 @@ class AugmentAdditiveEvaluator(Evaluator):
                     self.run_args,
                     include_tests=[tm.name],
                     patch_file=patch_file,
-                    use_cache=False
+                    use_cache=False,
+                    delete_last=False
                 )
 
                 test_error = indvtest_cov.get_failed(func.name)

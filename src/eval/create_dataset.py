@@ -1,4 +1,3 @@
-import sys
 import json
 from typing import List, Optional, Dict
 from pathlib import Path
@@ -12,17 +11,15 @@ from cowboy_lib.test_modules import TestModule
 from cowboy_lib.ast import NodeType
 
 from src.tasks.get_baseline_parallel import get_tm_target_coverage
-from src.repo.models import RepoConfig
-from src.auth.service import get_or_create_admin_user
-from src.repo.service import get_or_create_local as get_or_create_repo
 from src.config import REPOS_ROOT, BRAINTRUST_API_KEY, BT_PROJECT, TESTCONFIG_ROOT
 from src.test_modules.iter_tms import iter_test_modules
 from src.database.core import engine
-from src.runner.local.run_test import get_repo_config, run_test as run_test_local
+from src.runner.local.run_test import run_test as run_test_local
 
 from src.logger import buildtm_logger as log
 
-from .datasets import TestModuleRow, persist_rows, read_rows
+from .db import get_repo
+from .datasets import TestModuleRow, read_rows
 
 class NoTestsToDelete(Exception):
     pass
@@ -61,7 +58,7 @@ async def neuter_repo(
     """
     log.info(f"Creating dataset, with max_tm = {max_tm}")
 
-    with open(Path(TESTCONFIG_ROOT) / f"{repo_name}.json", "r") as f:
+    with open(TESTCONFIG_ROOT / f"{repo_name}.json", "r") as f:
         repo_config = json.loads(f.read())        
 
     base_path = out_repo if out_repo else src_repo.repo_path
@@ -80,7 +77,6 @@ async def neuter_repo(
                 to_exclude = []
                 num_to_del = num_delete(tm, to_keep=to_keep, to_delete=to_delete)
                 if num_to_del < 3:
-                    # NEWTODO: we should track this number in the state somwhere
                     log.info(f"Skipping {tm.name} as no tests to delete")
                     raise NoTestsToDelete()
 
@@ -112,14 +108,15 @@ async def neuter_repo(
 
                 log.info(f"Diff coverage: {diff_cov.total_cov.covered}")
                 row = TestModuleRow(
-                    tm=tm,
+                    name=tm.name,
                     base_cov=base_cov,
                     file_content=file_contents,
                     module_cov=modcov_after.get_coverage(),
                     repo_config=repo_config,
-                    expected=diff_cov.total_cov.covered
+                    expected=diff_cov.total_cov.covered,
+                    tags=[tm.name]
                 )
-                persist_rows(row, repo_name)
+                row.persist(tm)
 
                 # TODO: hitting limit for row size here with braintrust
                 # dataset.update(
@@ -221,7 +218,7 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
     # res = asyncio.run(get_or_create_repo_from_conf(args.repo_name))
-    repo = get_repo_config(args.repo_name)
+    repo = get_repo(args.repo_name)
     base_cov = asyncio.run((run_test_local(repo.repo_name, None)))
     base_cov = base_cov.get_coverage()
 

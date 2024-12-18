@@ -84,7 +84,8 @@ async def create_tgt_coverage(
     # NEWDESIGN: in future, consider putting detecting TM updates due to mapped
     # module changes here
 
-    # NEWTODO: 
+    # NEWTODO: Rewrunning base_cov is too expensive everytime but we do want some way 
+    # of keeping the coverage information to be updated
     # if overwrite or not base_cov:
     #     log.info("Overwriting base coverage ... th ")
     #     cov_res = await run_test(repo.repo_name, run_args)

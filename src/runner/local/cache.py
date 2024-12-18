@@ -91,14 +91,12 @@ def cache_test_run(func):
                 # Delete the last existing entry for the computed hash
                 delete_cache_entry(cache_key)
             
-            # Try to get from cache
-            log.info(f"Returning from cache: {(repo_name, exclude_tests, include_tests)}")
             cached_result = read_cache(cache_key)
             if cached_result is not None:
                 caller = inspect.stack()[1]  # Get immediate caller
                 log.info(f"Returning from cache: {(repo_name, exclude_tests, include_tests)} \
-                          - called from {caller.filename}:{caller.lineno} in {caller.function}")
-                
+                        - called from {caller.filename}:{caller.lineno} in {caller.function}")
+
                 return cached_result
             
         # Run the actual function if not in cache

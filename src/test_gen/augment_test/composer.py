@@ -68,8 +68,6 @@ class Composer:
         module_cov: TestCoverage
     ) -> List[Tuple[Function, TestCoverage]]:
         no_overlap = []
-        # NEWTODO:MODULECOV -> actually no ops needed
-        # confirm that TestCoverage here 
         overlap_cov = module_cov
         for test, cov in tests:
             new_cov = overlap_cov + cov
@@ -174,8 +172,6 @@ class Composer:
 
             failed_tests.extend(failed)
             no_improve_tests.extend(no_improve)
-
-            # NEWTODO: UPDATE HERE WITH NEW GENERATED PATCHFILE
             updated_patchfile = PatchFile(
                 path=self.test_input.path,
                 patch=self.test_input.test_file.to_code(),

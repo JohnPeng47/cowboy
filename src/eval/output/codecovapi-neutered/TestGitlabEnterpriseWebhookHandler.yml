@@ -1,0 +1,31 @@
+git_hash: 2a5d9982780826492491d3d80ced2bf5dda0835c
+tests:
+- name: TestGitlabEnterpriseWebhookHandler.test_handle_system_hook_event
+  coverage_added: 78
+  test_module: TestGitlabEnterpriseWebhookHandler
+  code: "    def test_handle_system_hook_event(self):\n        self.service_name =\
+    \ \"gitlab_enterprise\"\n        owner = OwnerFactory(service=self.service_name)\n\
+    \        repo = RepositoryFactory(\n            author=owner,\n            service_id=uuid.uuid4(),\n\
+    \            active=True,\n        )\n\n        # Mock _handle_system_hook_event\
+    \ call with valid event_name and trigger\n        # an event that would call the\
+    \ method.\n        event_name = \"project_rename\"\n        data = {\n       \
+    \     \"project_id\": repo.service_id,\n            \"name\": \"new_project_name\"\
+    ,\n        }\n\n        with patch.object(\n            GitLabEnterpriseWebhookHandler,\
+    \ \"_handle_system_hook_event\"\n        ) as mock_method:\n            mock_method.return_value\
+    \ = Response(status=status.HTTP_200_OK)\n            response = self._post_event_data(\n\
+    \                event=GitLabWebhookEvents.SYSTEM,\n                data=data,\n\
+    \                token=repo.webhook_secret,\n            )\n            mock_method.assert_called_once_with(repo,\
+    \ event_name=event_name)\n            assert response.status_code == status.HTTP_200_OK\n\
+    \n        # Test handling event with event_name 'project_destroy'\n        event_name\
+    \ = \"project_destroy\"\n        data = {\"project_id\": repo.service_id}\n  \
+    \      response = self._post_event_data(\n            event=GitLabWebhookEvents.SYSTEM,\n\
+    \            data=data,\n            token=repo.webhook_secret,\n        )\n \
+    \       repo.refresh_from_db()\n        assert repo.deleted is True\n        assert\
+    \ repo.active is False\n        assert response.status_code == status.HTTP_200_OK\n\
+    \        assert \"Repository deleted\" in response.data.get(\"data\")\n\n    \
+    \    # Test handling event with event_name that is not explicitly handled\n  \
+    \      event_name = \"unknown_event\"\n        data = {\"project_id\": repo.service_id}\n\
+    \        response = self._post_event_data(\n            event=GitLabWebhookEvents.SYSTEM,\n\
+    \            data=data,\n            token=repo.webhook_secret,\n        )\n \
+    \       # Should just return an empty 200 OK response\n        assert response.status_code\
+    \ == status.HTTP_200_OK\n        assert response.data == {}"

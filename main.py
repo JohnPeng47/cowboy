@@ -36,11 +36,6 @@ import uuid
 
 from src.sync_repos import start_sync_thread
 from src.database.core import engine
-
-# NEWTODO: this very likely gonna be broken when we start running multiple worker
-# threads in uvicorn since each thread will get its own copy.. which should actually 
-# be fine since we just issue a new authentication request
-# global var token_registry
 from src.token_registry import token_registry
 
 

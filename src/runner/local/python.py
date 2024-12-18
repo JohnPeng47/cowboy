@@ -1,9 +1,9 @@
 from cowboy_lib.ast import Function
-from cowboy_lib.repo.repository import PatchFileContext, GitRepo
+from cowboy_lib.repo.repository import PatchFile, PatchFileContext, GitRepo
 from cowboy_lib.coverage import CoverageResult
 from cowboy_lib.api.runner.shared import RunTestTaskArgs, FunctionArg
 
-from src.logger import master_logger as log
+from src.logger import testgen_logger, buildtm_logger, MultiLogger
 
 from .models import RepoConfig
 
@@ -18,6 +18,7 @@ import sys
 from contextlib import contextmanager
 import queue
 
+log = MultiLogger(testgen_logger, buildtm_logger)
 COVERAGE_FILE = "coverage.json"
 TestError = NewType("TestError", str)
 
@@ -225,6 +226,44 @@ class PytestDiffRunner:
         arg_str = arg_str[: -len(AND)]
         # return "-k " + '"' + arg_str + '"'
         return "-k " + arg_str
+    
+    def _get_coveragerc(self, base_path: Path) -> str:
+        """Returns a .coveragerc file that omits test file patterns along with the original content"""
+        
+        omit_patterns = """    venv/*
+    tests/*
+    */tests/*
+    test_*
+    *_test.py"""
+
+        default_config = f"""[run]
+omit = 
+{omit_patterns}
+"""
+        try:
+            with open(base_path / ".coveragerc", "r") as f:
+                existing_config = f.read()
+                if "[run]" in existing_config:
+                    lines = existing_config.splitlines()
+                    omit_start = -1
+                    for i, line in enumerate(lines):
+                        if line.strip() == "[run]":
+                            omit_start = i
+                        elif omit_start >= 0 and line.strip().startswith("omit"):
+                            # Add our patterns after existing omit line
+                            lines[i] += f"\n{omit_patterns}"
+                            return "\n".join(lines)
+                    
+                    # No omit section found, add it under [run]
+                    if omit_start >= 0:
+                        lines.insert(omit_start + 1, f"omit = \n{omit_patterns}")
+                        return "\n".join(lines)
+                
+                # No [run] section found, append entire default config
+                return existing_config + "\n" + default_config
+                
+        except FileNotFoundError:
+            return default_config
 
     def _construct_cmd(
         self, 
@@ -265,7 +304,7 @@ class PytestDiffRunner:
                 "--disable-warnings",
             ]
 
-        log.info(f"CMDER:: ", " ".join(cd_cmd + ["&&"] + cmd))
+        log.info(f"CMDER:: {' '.join(cd_cmd + ["&&"] + cmd)}")
         print("CMDER:: ", " ".join(cd_cmd + ["&&"] + cmd))
         return " ".join(cd_cmd + ["&&"] + cmd)
 
@@ -328,31 +367,35 @@ class PytestDiffRunner:
         with self.test_repos.acquire_one() as repo_inst:
             git_repo: GitRepo = repo_inst
 
+            patches = []
             patch_file = args.patch_file
             if patch_file:
                 patch_file.path = git_repo.repo_folder / patch_file.path
-                # log.info(f"Using patch file: {patch_file.path}")
 
-            exclude_tests = args.exclude_tests
-            include_tests = args.include_tests
+            # create patchfile for coveragerc
+            coverage_rc = self._get_coveragerc(git_repo.repo_folder)
+            print("COVERAGERC: ", coverage_rc)
+            patches.append(PatchFile(
+                path=git_repo.repo_folder / ".coveragerc", 
+                patch=coverage_rc
+            ))
 
             env = os.environ.copy()
             if self.python_path:
                 env["PYTHONPATH"] = self.python_path
 
             exclude_tests = self._get_exclude_tests_arg_str(
-                exclude_tests, git_repo.repo_folder
+                args.exclude_tests, git_repo.repo_folder
             )
-            include_tests = self._get_include_tests_arg_str(include_tests)
+            include_tests = self._get_include_tests_arg_str(args.include_tests)
             cmd_str = self._construct_cmd(
                 git_repo.repo_folder, include_tests, exclude_tests, custom_cmd
             )
 
             log.info(f"Running with command: {cmd_str}")
-            with PatchFileContext(git_repo, patch_file):
+            with PatchFileContext(git_repo, patches):
                 proc = subprocess.Popen(
                     cmd_str,
-                    # env=env,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                     shell=True,
@@ -374,7 +417,7 @@ class PytestDiffRunner:
                 except FileNotFoundError:
                     raise TestSuiteError(stderr)
                 
-            log.info(f"GET COVEAGE: {cov.get_coverage()}")
+            log.info(f"GET COVERAGE: {cov.get_coverage()}")
         return (
             cov,
             stdout,
