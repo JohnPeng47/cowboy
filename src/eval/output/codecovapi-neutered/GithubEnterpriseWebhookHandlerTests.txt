@@ -1,8 +1,0 @@
-Git Hash: 2a5d9982780826492491d3d80ced2bf5dda0835c
-New Test: GithubEnterpriseWebhookHandlerTests.test_update_email_address_invalid
-Coverage Added: 236
-TestModule: GithubEnterpriseWebhookHandlerTests
-    def test_update_email_address_invalid(self):
-        with patch("services.billing.stripe.Customer.modify") as mock_modify:
-            self.payment_service.update_email_address(self.owner, "invalid-email")
-            mock_modify.assert_not_called()

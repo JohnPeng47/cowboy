@@ -6,6 +6,9 @@ from src.runner.local.run_test import get_repo_config
 from src.config import EVAL_DATA_ROOT
 from cowboy_lib.test_modules import TestModule
 
+# Pseudo DB:
+# Ensures that all calls to persisted data models goes through this file
+
 # Note:
 # Have to store TestModule separately because it exceeds what Braintrust is willing to store
 # per dataset input

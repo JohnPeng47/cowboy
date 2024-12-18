@@ -1,4 +1,4 @@
-from src.eval.datasets import read_rows, TestModuleRow
+from src.eval.datasets import read_rows, TestModuleEvalData
 
 dataset = read_rows("codecovapi-neutered")
 for d in dataset:

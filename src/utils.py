@@ -5,7 +5,9 @@ import uuid
 import time
 import functools
 from src.logger import testgen_logger
-
+import git
+from pathlib import Path
+from colorama import Fore, Style
 
 # nested level get() function
 def resolve_attr(obj, attr, default=None):
@@ -58,3 +60,18 @@ def sync_timed(func):
 
     return wrapper
 
+def get_repo_head(repo_path: Path):
+    """Returns the head commit hash of a git repository"""
+    return git.Repo(repo_path).head.commit.hexsha
+
+def cyan_text(text: str) -> str:
+    """Returns text in red color using colorama"""
+    return f"{Fore.CYAN}{text}{Style.RESET_ALL}"
+    
+def green_text(text: str) -> str:
+    """Returns text in green color using colorama"""
+    return f"{Fore.GREEN}{text}{Style.RESET_ALL}"
+
+def dim_text(text: str) -> str:
+    """Returns text in dim color using colorama"""
+    return f"{Style.DIM}{text}{Style.RESET_ALL}"

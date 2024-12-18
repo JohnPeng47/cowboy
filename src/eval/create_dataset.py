@@ -15,11 +15,9 @@ from src.config import REPOS_ROOT, BRAINTRUST_API_KEY, BT_PROJECT, TESTCONFIG_RO
 from src.test_modules.iter_tms import iter_test_modules
 from src.database.core import engine
 from src.runner.local.run_test import run_test as run_test_local
-
+from src.local.db import get_repo
+from src.local.models import TestModuleEvalData
 from src.logger import buildtm_logger as log
-
-from .db import get_repo
-from .datasets import TestModuleRow, read_rows
 
 class NoTestsToDelete(Exception):
     pass
@@ -107,7 +105,7 @@ async def neuter_repo(
                 diff_cov = modcov_before.get_coverage() - modcov_after.get_coverage()
 
                 log.info(f"Diff coverage: {diff_cov.total_cov.covered}")
-                row = TestModuleRow(
+                row = TestModuleEvalData(
                     name=tm.name,
                     base_cov=base_cov,
                     file_content=file_contents,
@@ -154,18 +152,6 @@ async def neuter_repo(
     with open(base_path / "neuter_summary.txt", "w") as f:
         f.write(summary)
 
-# def get_or_create_repo_from_conf(repo_name: str) -> RepoConfig:
-#     repo_conf = get_repo_config(repo_name)
-#     with Session() as session:
-#         user = get_or_create_admin_user(db_session=session)
-#         repo, base_cov = get_or_create_repo(db_session=session, 
-#                                user_id=user.id,  
-#                                repo_in=repo_conf, 
-#                                task_queue=None)
-#         session.commit()
-
-#         return repo, base_cov
-
 async def get_target_coverage(repo_name: str, 
                               src_repo: SourceRepo, 
                               base_cov: TestCoverage,
@@ -179,87 +165,3 @@ async def get_target_coverage(repo_name: str,
         run_args=None
     )
     test_module.chunks = chunks
-
-if __name__ == "__main__":
-    import argparse
-    import asyncio
-
-    parser = argparse.ArgumentParser(
-        description="Neuter a repository by removing test functions while keeping a specified number"
-    )
-    parser.add_argument(
-        "repo_name",
-        type=str,
-        help="Name of the repo config file"
-    )
-    parser.add_argument(
-        "--out-repo",
-        type=str,
-        help="Optional path to output neutered repository (defaults to modifying original)",
-        default=None
-    )
-    parser.add_argument(
-        "--keep",
-        type=int,
-        help="Number of test functions to keep per module (default: 2)",
-        default=2
-    )
-    parser.add_argument(
-        "--delete",
-        type=int,
-        help="Number of test functions to delete per module (default: 0, meaning keep specified number)",
-        default=0
-    )
-    parser.add_argument(
-        "--max-tm",
-        type=int,
-        help="Maximum number of test modules to process",
-        default=5
-    )
-    args = parser.parse_args()
-    # res = asyncio.run(get_or_create_repo_from_conf(args.repo_name))
-    repo = get_repo(args.repo_name)
-    base_cov = asyncio.run((run_test_local(repo.repo_name, None)))
-    base_cov = base_cov.get_coverage()
-
-    log.info(f"#### Create Dataset for {repo.repo_name} ####")
-    
-    print("BaseCov: ", base_cov)
-    
-    dataset = init_dataset(name=repo.repo_name, project=BT_PROJECT, api_key=BRAINTRUST_API_KEY)
-
-    print("iniitlaized dataset: ", repo.repo_name)
-
-    out_repo = Path(args.out_repo) if args.out_repo else None
-    src_repo = SourceRepo(Path(repo.source_folder))
-    test_modules = iter_test_modules(src_repo)
-    
-    current_module = 0
-    while current_module < min(len(test_modules), args.max_tm):
-        try:
-            print("__________________________________________________________________")
-            print("Current module: ", current_module)
-            print("__________________________________________________________________")
-            
-            tm = test_modules[current_module]
-            asyncio.run(get_target_coverage(repo.repo_name, src_repo, base_cov, tm))
-            asyncio.run(
-                neuter_repo(
-                    dataset,
-                    repo.repo_name,
-                    [tm],
-                    src_repo, 
-                    base_cov=base_cov,
-                    to_keep=args.keep, 
-                    to_delete=args.delete,
-                    max_tm=1,
-                    out_repo=out_repo
-                )
-            )
-
-            current_module += 1
-        except Exception as e:
-            log.error(f"Error processing module {current_module}: {e}")
-            test_modules = test_modules[1:]
-            continue
-    

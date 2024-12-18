@@ -45,6 +45,7 @@ BT_PROJECT = "Cowboy"
 BRAINTRUST_API_KEY = config("BRAINTRUST_API_KEY")
 
 EVAL_DATA_ROOT = Path("src/eval/datasets")
+EVAL_OUTPUT_ROOT = Path("src/eval/output")
 
 class Language(str, Enum):
     """

@@ -10,9 +10,17 @@ from src.runner.local.run_test import run_test
 from src.test_modules.iter_tms import iter_test_modules
 from src.config import BT_PROJECT, BRAINTRUST_API_KEY
 
-from .eval_dataset import eval_dataset, eval_dataset_braintrust
-from .create_dataset import neuter_repo, get_target_coverage
-from .db import get_repo
+from src.eval.eval_dataset import eval_dataset, eval_dataset_braintrust
+from src.eval.create_dataset import neuter_repo, get_target_coverage
+from src.local.db import get_repo
+from src.local.models import TestResults
+from src.local.apply import (
+    validate, 
+    print_test_summary, 
+    TestApplyError,
+    apply_tests,
+    confirm_action
+)
 
 
 def coro(f):
@@ -87,6 +95,9 @@ async def create_dataset(repo_name: str, out_repo: Optional[str],
     out_repo_path = Path(out_repo) if out_repo else None
     src_repo = SourceRepo(Path(repo.source_folder))
     test_modules = iter_test_modules(src_repo)
+
+    click.echo(f"Creating {max_tm}/{len(test_modules)} datasets", fg="green")
+    click.echo(f"Set \"--max-tm\" to change number of datasets to create", fg="yellow")
     
     current_module = 0
     while current_module < min(len(test_modules), max_tm):
@@ -109,6 +120,29 @@ async def create_dataset(repo_name: str, out_repo: Optional[str],
             click.echo(f"Error processing module {current_module}: {e}", err=True)
             test_modules = test_modules[1:]
             continue
+
+@cli.command()
+@click.argument("output_path", type=click.Path(exists=True, path_type=Path))
+@coro
+async def apply(output_path: Path):
+    """Apply generated tests from output files to target files."""
+    test_cases_str = ""
+
+    for file in output_path.rglob("*.yml"):
+        try:
+            test_results = TestResults.from_file(file)
+            
+            validate(test_results)
+
+            test_cases_str += print_test_summary(file, test_results)
+            # test_cases_str += "\n"
+
+            # apply_tests(file, target, repo_name)
+        except TestApplyError as e:
+            click.echo(f"TestResult validation error: {e} => Skipping {file}", err=True)
+            continue
+
+    confirm_action(test_cases_str)
 
 def main():
     """Entry point for the CLI."""
