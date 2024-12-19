@@ -2,6 +2,9 @@
 An test generator using LLMs and code coverage to automatically extend your pre-existing test suites. Completely handsoff after initial config, point it at a repo and sit back and watch your coverage go up, up, up!\
 _Intended to be language agnostic but currently Python/pytest support only_
 
+Here are some evaluation results from running this on codecovapi:\
+https://www.braintrust.dev/app/Cowboy/p/codecovapi-neutered/experiments/codecovapi-neutered%3A%3AWITH_CTXT%3A%3A2_n_times%3A%3A5_TMs?c=codecovapi-neutered::WITH_CTXT::3_n_times::1_TMs
+
 ## How it works
 LLMs are the core component and it requires two pieces of context to extend a unit test suite:\
 1. The currently existing tests
