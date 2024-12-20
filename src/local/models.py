@@ -4,7 +4,6 @@ from dataclasses import dataclass, field, asdict
 from typing import List, Dict, Optional
 from pathlib import Path
 
-from src.repo.models import RepoConfig
 from src.config import EVAL_DATA_ROOT
 from cowboy_lib.test_modules import TestModule
 
@@ -69,6 +68,19 @@ class TestModuleData:
             file_content=data["file_content"],
             repo_config=data["repo_config"]
         )
+    
+    def persist(self, tm: TestModule):
+        repo_name = self.repo_config["repo_name"]
+        repo_dir = EVAL_DATA_ROOT / repo_name
+        repo_dir.mkdir(exist_ok=True)
+
+        # Write the row data
+        file_path = repo_dir / f"{self.name}.json"
+        with open(file_path, "w") as f:
+            json.dump(self.to_json(), f, indent=2)
+
+        persist_tm(repo_name, tm)
+ 
 
 @dataclass
 class TestModuleEvalData(TestModuleData):
@@ -90,18 +102,6 @@ class TestModuleEvalData(TestModuleData):
             "tags": self.tags
         }
 
-    def persist(self, tm: TestModule):
-        repo_name = self.repo_config["repo_name"]
-        repo_dir = EVAL_DATA_ROOT / repo_name
-        repo_dir.mkdir(exist_ok=True)
-
-        # Write the row data
-        file_path = repo_dir / f"{self.name}.json"
-        with open(file_path, "w") as f:
-            json.dump(self.to_json(), f, indent=2)
-
-        persist_tm(tm)
-    
     @classmethod
     def from_json(cls, data) -> "TestModuleEvalData":
         input = data["input"]

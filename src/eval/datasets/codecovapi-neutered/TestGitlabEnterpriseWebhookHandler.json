@@ -19,7 +19,9 @@
       }
     }
   },
-  "expected": 256,
+  "expected": 78,
   "metadata": {},
-  "tags": ["TestGitlabEnterpriseWebhookHandler"]
+  "tags": [
+    "TestGitlabEnterpriseWebhookHandler"
+  ]
 }

@@ -46,6 +46,15 @@ def async_timed(func):
 
     return wrapper
 
+def confirm_action(prompt: str) -> bool:
+    """Get user confirmation for an action"""
+    while True:
+        response = input(f"{prompt}\nDo you want to apply the patch (y/N): ").lower().strip()
+        if response in ['y', 'yes']:
+            return True
+        if response in ['n', 'no', '']:
+            return False
+        print("Please answer 'y' or 'n'")
 
 def sync_timed(func):
     @functools.wraps(func)
@@ -71,6 +80,10 @@ def cyan_text(text: str) -> str:
 def green_text(text: str) -> str:
     """Returns text in green color using colorama"""
     return f"{Fore.GREEN}{text}{Style.RESET_ALL}"
+
+def red_text(text: str) -> str:
+    """Returns text in red color using colorama"""
+    return f"{Fore.RED}{text}{Style.RESET_ALL}"
 
 def dim_text(text: str) -> str:
     """Returns text in dim color using colorama"""

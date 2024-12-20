@@ -1,3 +1,4 @@
+import sys
 import asyncio
 import click
 from pathlib import Path
@@ -11,17 +12,17 @@ from src.test_modules.iter_tms import iter_test_modules
 from src.config import BT_PROJECT, BRAINTRUST_API_KEY
 
 from src.eval.eval_dataset import eval_dataset, eval_dataset_braintrust
-from src.eval.create_dataset import neuter_repo, get_target_coverage
-from src.local.db import get_repo
-from src.local.models import TestResults
+from src.eval.create_dataset import neuter_repo
+from src.local.db import get_repo, persist_tm, get_tm, DatasetCreationError
+from src.local.models import TestResults, TestModuleData
+from src.local.tgt_coverage import enrich_tm_with_tgt_coverage
 from src.local.apply import (
     validate, 
     print_test_summary, 
     TestApplyError,
-    apply_tests,
-    confirm_action
+    apply_tests
 )
-
+from src.utils import confirm_action
 
 def coro(f):
     """Decorator to run async functions using click"""
@@ -70,8 +71,6 @@ async def evaluate(repo_name: str, num_records: int, strat: str,
 
 @cli.command()
 @click.argument("repo_name", type=str)
-@click.option("--out-repo", type=str, default=None,
-              help="Optional path to output neutered repository")
 @click.option("--keep", type=int, default=2,
               help="Number of test functions to keep per module")
 @click.option("--delete", type=int, default=0,
@@ -79,8 +78,8 @@ async def evaluate(repo_name: str, num_records: int, strat: str,
 @click.option("--max-tm", type=int, default=5,
               help="Maximum number of test modules to process")
 @coro
-async def create_dataset(repo_name: str, out_repo: Optional[str], 
-                        keep: int, delete: int, max_tm: int):
+async def setup_neutered_repo(repo_name: str, 
+                              keep: int, delete: int, max_tm: int):
     """Neuter a repository by removing test functions."""
     repo = get_repo(repo_name)
     base_cov = await run_test(repo.repo_name, None)
@@ -91,8 +90,42 @@ async def create_dataset(repo_name: str, out_repo: Optional[str],
         project=BT_PROJECT, 
         api_key=BRAINTRUST_API_KEY
     )
+    src_repo = SourceRepo(Path(repo.source_folder))
+    test_modules = iter_test_modules(src_repo)
 
-    out_repo_path = Path(out_repo) if out_repo else None
+    click.echo(f"Creating {max_tm}/{len(test_modules)} datasets")
+    click.echo(f"Set \"--max-tm\" to change number of datasets to create")
+    
+    for tm in test_modules[:max_tm]:
+        chunks = await enrich_tm_with_tgt_coverage(repo.repo_name, src_repo, base_cov, tm)
+        tm.chunks = chunks
+
+        await neuter_repo(
+            dataset,
+            repo.repo_name,
+            [tm],
+            Path(repo.source_folder), 
+            base_cov=base_cov,
+            to_keep=keep, 
+            to_delete=delete,
+        )
+ 
+@cli.command()
+@click.argument("repo_name", type=str)
+@click.option("--max-tm", type=int, default=5,
+              help="Maximum number of test modules to process")
+@coro
+async def setup_repo(repo_name: str, max_tm: int):
+    """Setup a repo for local test augmentation"""
+    repo = get_repo(repo_name)
+    base_cov = await run_test(repo.repo_name, None)
+    base_cov = base_cov.get_coverage()
+    
+    dataset = init_dataset(
+        name=repo.repo_name, 
+        project=BT_PROJECT, 
+        api_key=BRAINTRUST_API_KEY
+    )
     src_repo = SourceRepo(Path(repo.source_folder))
     test_modules = iter_test_modules(src_repo)
 
@@ -103,46 +136,49 @@ async def create_dataset(repo_name: str, out_repo: Optional[str],
     while current_module < min(len(test_modules), max_tm):
         try:
             tm = test_modules[current_module]
-            await get_target_coverage(repo.repo_name, src_repo, base_cov, tm)
-            await neuter_repo(
-                dataset,
-                repo.repo_name,
-                [tm],
-                src_repo, 
-                base_cov=base_cov,
-                to_keep=keep, 
-                to_delete=delete,
-                max_tm=1,
-                out_repo=out_repo_path
+            chunks = await enrich_tm_with_tgt_coverage(repo.repo_name, src_repo, base_cov, tm)
+            tm.chunks = chunks
+
+            tm_data = TestModuleData(
+                name=tm.name,
+                file_content=tm.test_file.to_code(),
+                repo_config=repo.to_dict(),
             )
+            tm_data.persist(tm)
+
             current_module += 1
         except Exception as e:
             click.echo(f"Error processing module {current_module}: {e}", err=True)
             test_modules = test_modules[1:]
             continue
 
+
 @cli.command()
 @click.argument("output_path", type=click.Path(exists=True, path_type=Path))
 @coro
 async def apply(output_path: Path):
     """Apply generated tests from output files to target files."""
+    
     test_cases_str = ""
-
+    non_empty = []
     for file in output_path.rglob("*.yml"):
         try:
             test_results = TestResults.from_file(file)
-            
             validate(test_results)
 
             test_cases_str += print_test_summary(file, test_results)
-            # test_cases_str += "\n"
+            non_empty.append(test_results)
 
-            # apply_tests(file, target, repo_name)
         except TestApplyError as e:
             click.echo(f"TestResult validation error: {e} => Skipping {file}", err=True)
             continue
 
-    confirm_action(test_cases_str)
+    confirm = confirm_action(test_cases_str)
+    if not confirm:
+        sys.exit(1)
+
+    for test_results in non_empty:
+        apply_tests(test_results)
 
 def main():
     """Entry point for the CLI."""

@@ -304,8 +304,6 @@ omit =
                 "--disable-warnings",
             ]
 
-        log.info(f"CMDER:: {' '.join(cd_cmd + ["&&"] + cmd)}")
-        print("CMDER:: ", " ".join(cd_cmd + ["&&"] + cmd))
         return " ".join(cd_cmd + ["&&"] + cmd)
 
     def _stream_and_capture_output(self, process: subprocess.Popen) -> Tuple[str, str]:
@@ -374,7 +372,6 @@ omit =
 
             # create patchfile for coveragerc
             coverage_rc = self._get_coveragerc(git_repo.repo_folder)
-            print("COVERAGERC: ", coverage_rc)
             patches.append(PatchFile(
                 path=git_repo.repo_folder / ".coveragerc", 
                 patch=coverage_rc
@@ -392,7 +389,6 @@ omit =
                 git_repo.repo_folder, include_tests, exclude_tests, custom_cmd
             )
 
-            log.info(f"Running with command: {cmd_str}")
             with PatchFileContext(git_repo, patches):
                 proc = subprocess.Popen(
                     cmd_str,

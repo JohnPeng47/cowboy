@@ -1,4 +1,3 @@
-import sys
 from typing import List, Optional
 from pathlib import Path
 from collections import defaultdict
@@ -9,8 +8,6 @@ from cowboy_lib.ast import NodeType
 
 from src.test_modules.iter_tms import iter_test_modules
 from src.database.core import engine
-from src.repo.service import create as create_repo
-from src.runner.local.run_test import get_repo_config, run_test
 
 def num_delete(tm: TestModule, to_keep: int = 1, to_delete: int = 1) -> int:
     if to_keep and to_delete:

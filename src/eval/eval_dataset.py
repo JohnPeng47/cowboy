@@ -2,7 +2,7 @@ import dotenv
 from typing import Dict
 from braintrust import EvalAsync
 
-from src.local.extend_tests import extend_tests
+from src.local.augment_tests import extend_tests
 from src.local.models import read_rows
 
 dotenv.load_dotenv()

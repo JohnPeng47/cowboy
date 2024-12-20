@@ -1,7 +1,6 @@
 from cowboy_lib.repo.source_repo import SourceRepo
 from cowboy_lib.coverage import Coverage, TestCoverage, CoverageResult
 from cowboy_lib.test_modules.test_module import TestModule, TargetCode
-from cowboy_lib.utils import testfiles_in_coverage
 
 from src.queue.core import TaskQueue
 from src.runner.service import RunServiceArgs
