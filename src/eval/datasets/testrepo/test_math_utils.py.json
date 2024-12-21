@@ -1,0 +1,20 @@
+{
+  "name": "test_math_utils.py",
+  "file_content": "import pytest\nfrom src.math_utils import factorial, is_prime, fibonacci\n\ndef test_factorial():\n    assert factorial(0) == 1\n    assert factorial(1) == 1\n    assert factorial(5) == 120\n\ndef test_factorial_errors():\n    with pytest.raises(TypeError, match=\"Input must be an integer\"):\n        factorial(1.5)\n    with pytest.raises(ValueError, match=\"Factorial is not defined for negative numbers\"):\n        factorial(-1)\n\ndef test_is_prime():\n    assert is_prime(2) == True\n    assert is_prime(3) == True\n    assert is_prime(4) == False\n    assert is_prime(17) == True\n    assert is_prime(1) == False\n\ndef test_is_prime_errors():\n    with pytest.raises(TypeError, match=\"Input must be an integer\"):\n        is_prime(1.5)\n\ndef test_fibonacci():\n    assert fibonacci(0) == 0\n    assert fibonacci(1) == 1\n    assert fibonacci(2) == 1\n    assert fibonacci(5) == 5\n    assert fibonacci(6) == 8\n\ndef test_fibonacci_errors():\n    with pytest.raises(TypeError, match=\"Input must be an integer\"):\n        fibonacci(1.5)\n    with pytest.raises(ValueError, match=\"Fibonacci is not defined for negative numbers\"):\n        fibonacci(-1) ",
+  "repo_config": {
+    "repo_name": "testrepo",
+    "url": "https://github.com/codecov/codecov-api.git",
+    "cloned_folders": [
+      "/home/ubuntu/test_repo"
+    ],
+    "source_folder": "/home/ubuntu/test_repo",
+    "python_conf": {
+      "cov_folders": [
+        "src"
+      ],
+      "interp": "/home/ubuntu/cowboy-server/.venv/bin/python",
+      "test_folder": "tests",
+      "pythonpath": ""
+    }
+  }
+}

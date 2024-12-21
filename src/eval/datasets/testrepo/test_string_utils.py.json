@@ -1,0 +1,20 @@
+{
+  "name": "test_string_utils.py",
+  "file_content": "import pytest\nfrom src.string_utils import reverse_string, count_vowels, is_palindrome\n\ndef test_reverse_string():\n    assert reverse_string(\"hello\") == \"olleh\"\n    assert reverse_string(\"\") == \"\"\n    assert reverse_string(\"a\") == \"a\"\n\ndef test_count_vowels():\n    assert count_vowels(\"hello\") == 2\n    assert count_vowels(\"AEIOU\") == 5\n    assert count_vowels(\"xyz\") == 0\n    assert count_vowels(\"\") == 0\n\ndef test_is_palindrome():\n    assert is_palindrome(\"A man a plan a canal Panama\")\n    assert is_palindrome(\"race a car\") == False\n    assert is_palindrome(\"\") == True\n    assert is_palindrome(\"a\") == True ",
+  "repo_config": {
+    "repo_name": "testrepo",
+    "url": "https://github.com/codecov/codecov-api.git",
+    "cloned_folders": [
+      "/home/ubuntu/test_repo"
+    ],
+    "source_folder": "/home/ubuntu/test_repo",
+    "python_conf": {
+      "cov_folders": [
+        "src"
+      ],
+      "interp": "/home/ubuntu/cowboy-server/.venv/bin/python",
+      "test_folder": "tests",
+      "pythonpath": ""
+    }
+  }
+}
