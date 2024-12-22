@@ -230,15 +230,17 @@ class PytestDiffRunner:
     def _get_coveragerc(self, base_path: Path) -> str:
         """Returns a .coveragerc file that omits test file patterns along with the original content"""
         
-        omit_patterns = """    venv/*
-    tests/*
-    */tests/*
-    test_*
-    *_test.py"""
+        omit_patterns = [
+            "venv/*",
+            "tests/*",
+            "*/tests/*",
+            "test_*",
+            "*_test.py"
+        ]
 
         default_config = f"""[run]
 omit = 
-{omit_patterns}
+    {chr(10).join('    ' + p for p in omit_patterns)}
 """
         try:
             with open(base_path / ".coveragerc", "r") as f:
@@ -250,13 +252,24 @@ omit =
                         if line.strip() == "[run]":
                             omit_start = i
                         elif omit_start >= 0 and line.strip().startswith("omit"):
-                            # Add our patterns after existing omit line
-                            lines[i] += f"\n{omit_patterns}"
+                            # Check which patterns are missing from existing omit section
+                            existing_patterns = set()
+                            j = i + 1
+                            while j < len(lines) and lines[j].startswith(" "):
+                                pattern = lines[j].strip()
+                                if pattern:
+                                    existing_patterns.add(pattern)
+                                j += 1
+                            
+                            # Only add missing patterns
+                            missing_patterns = [p for p in omit_patterns if p not in existing_patterns]
+                            if missing_patterns:
+                                lines[i] += f"\n    {chr(10).join('    ' + p for p in missing_patterns)}"
                             return "\n".join(lines)
                     
                     # No omit section found, add it under [run]
                     if omit_start >= 0:
-                        lines.insert(omit_start + 1, f"omit = \n{omit_patterns}")
+                        lines.insert(omit_start + 1, f"omit = \n    {chr(10).join('    ' + p for p in omit_patterns)}")
                         return "\n".join(lines)
                 
                 # No [run] section found, append entire default config
@@ -372,11 +385,14 @@ omit =
 
             # create patchfile for coveragerc
             coverage_rc = self._get_coveragerc(git_repo.repo_folder)
+
             patches.append(PatchFile(
                 path=git_repo.repo_folder / ".coveragerc", 
                 patch=coverage_rc
             ))
-
+            if patch_file:
+                patches.append(patch_file)
+                
             env = os.environ.copy()
             if self.python_path:
                 env["PYTHONPATH"] = self.python_path
@@ -388,6 +404,7 @@ omit =
             cmd_str = self._construct_cmd(
                 git_repo.repo_folder, include_tests, exclude_tests, custom_cmd
             )
+            log.info(f"CMD: {cmd_str}")
 
             with PatchFileContext(git_repo, patches):
                 proc = subprocess.Popen(
@@ -413,7 +430,6 @@ omit =
                 except FileNotFoundError:
                     raise TestSuiteError(stderr)
                 
-            log.info(f"GET COVERAGE: {cov.get_coverage()}")
         return (
             cov,
             stdout,

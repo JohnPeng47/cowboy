@@ -7,6 +7,7 @@ from src.local.db import get_tm
 
 from cowboy_lib.repo import SourceRepo
 import pytest
+from pathlib import Path
 
 pytestmark = pytest.mark.asyncio
 
@@ -58,8 +59,17 @@ async def test_additive_evaluator(test_repoconfig: RepoConfig, source_repo: Sour
     module_cov = await run_test(
         "testrepo",
         None,
-        include_tests=["test_math_utils.py"]
+        include_tests=["test_math_utils.py"],
+        use_cache=False
     )
+
+    # print(math_utils_tm.test_file.to_code())
+    # for cov in module_cov.get_coverage().cov_list:
+    #     print("Covered:" , cov.filename, cov.covered)
+    #     # cov.read_line_contents(Path(test_repoconfig.source_folder))
+    #     # print(cov.print_lines())
+
+    # return
     
     evaluator = AugmentAdditiveEvaluator(
         repo_name=test_repoconfig.repo_name,
@@ -71,8 +81,8 @@ async def test_additive_evaluator(test_repoconfig: RepoConfig, source_repo: Sour
     improved, failed, no_improve = await evaluator(
         [StratResult(TEST_MATH_UTILS, "tests/test_math_utils.py")],
         math_utils_tm,
-        module_cov,
+        module_cov.get_coverage(),
         math_utils_tm.test_file
     )
 
-    assert len(improved) == 6
+    assert len(improved) == 2

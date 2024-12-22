@@ -10,7 +10,7 @@ from src.config import TESTCONFIG_ROOT
 pytest_plugins = ['pytest_asyncio']
 
 
-git_commit = "64f9de7bf97ae3d82dd86eff3cdfbf01b23af830"
+git_commit = "57cc0790facddab289dae9c78afbdf814b692d64"
 
 @pytest.fixture
 def test_repoconfig():
