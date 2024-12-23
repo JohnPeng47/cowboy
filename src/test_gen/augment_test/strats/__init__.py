@@ -12,7 +12,7 @@ AUGMENT_STRATS = {
 }
 
 
-class AugmentStratType(Enum):
+class AugmentStratType(str, Enum):
     VANILLA = "VANILLA"
     WITH_CTXT = "WITH_CTXT"
     MODULE_MISSING = "MODULE_MISSING"

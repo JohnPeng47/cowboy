@@ -1,11 +1,9 @@
-import git
-import yaml
 from typing import Dict
 from pathlib import Path
 from dataclasses import asdict
 from cowboy_lib.repo import SourceRepo
 
-from src.utils import get_repo_head
+from src.utils import get_repo_head, yaml
 from src.test_gen.augment_test.composer import Composer
 from src.runner.local.run_test import run_test
 from src.config import COWBOY_OPENAI_API_KEY, EVAL_OUTPUT_ROOT
@@ -29,6 +27,7 @@ async def extend_tests(data: Dict):
         evaluator=evaluator,
         src_repo=src_repo,
         test_input=tm,
+        provider="openai",
         run_args=None,
         api_key=COWBOY_OPENAI_API_KEY,
         run_test=run_test

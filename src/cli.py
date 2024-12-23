@@ -2,19 +2,21 @@ import sys
 import asyncio
 import click
 from pathlib import Path
-from typing import Optional
+from typing import List, Tuple
 from braintrust import init_dataset
 from functools import wraps
 
+from cowboy_lib.test_modules import TestModule
 from cowboy_lib.repo import SourceRepo
+
+from src.test_gen.augment_test.composer import TestAugmentArgs
 from src.runner.local.run_test import run_test
 from src.test_modules.iter_tms import iter_test_modules
 from src.config import BT_PROJECT, BRAINTRUST_API_KEY
-
 from src.eval.eval_dataset import eval_dataset, eval_dataset_braintrust
-from src.eval.create_dataset import neuter_repo
-from src.local.db import get_repo, persist_tm, get_tm, DatasetCreationError
-from src.local.models import TestResults, TestModuleData
+from src.eval.create_dataset import handicap_tm
+from src.local.db import get_repo, get_tm
+from src.local.models import TestResults, TestModuleData, read_rows
 from src.local.tgt_coverage import enrich_tm_with_tgt_coverage
 from src.local.apply import (
     validate, 
@@ -23,6 +25,11 @@ from src.local.apply import (
     apply_tests
 )
 from src.utils import confirm_action
+
+def parse_list(ctx, param, value):
+    if not value:
+        return []
+    return [x.strip() for x in value.split(",")]
 
 def coro(f):
     """Decorator to run async functions using click"""
@@ -38,8 +45,14 @@ def cli():
 
 @cli.command()
 @click.argument("repo_name", type=str)
-@click.option("--num-records", type=int, default=0, 
+@click.option("--num-tms", type=int, default=0, 
               help="Number of records to evaluate (0 for all)")
+@click.option("--selected-tms", 
+              type=click.STRING, 
+              callback=parse_list,
+              default="",
+              help="Comma-separated list of TestModules to evaluate (e.g. 'module1,module2')")
+@click.option("--list-tms", is_flag=True, default=False,)
 @click.option("--strat", type=str, default="WITH_CTXT",
               help="Strategy for test generation")
 @click.option("--evaluator", type=str, default="ADDITIVE",
@@ -49,24 +62,46 @@ def cli():
 @click.option("--braintrust", is_flag=True, default=False,
               help="Whether to use Braintrust for evaluation")
 @coro
-async def evaluate(repo_name: str, num_records: int, strat: str, 
-                  evaluator: str, n_times: int, braintrust: bool):
+async def evaluate(repo_name: str,
+                   num_tms: int, 
+                   list_tms: bool,
+                   selected_tms: List[str],
+                   strat: str, 
+                   evaluator: str, 
+                   n_times: int, 
+                   braintrust: bool):
     """Evaluate test augmentation on datasets."""
+    if list_tms:
+        read_rows(repo_name, list_tms=True)
+        sys.exit()
+        
+    if selected_tms and num_tms:
+        raise ValueError("Cannot provide both selected-tms and num-tms")
+    
+    if selected_tms:
+        tm_datalist = read_rows(repo_name, braintrust, selected_tms=selected_tms)
+    elif num_tms:
+        tm_datalist = read_rows(repo_name, braintrust, limit=num_tms)
+
+    dataset = [datum.to_json() for datum in tm_datalist]
+    for d in dataset:
+        d.update(
+            {
+                "strat": strat,
+                "evaluator": evaluator,
+                "n_times": n_times
+            }
+        )
+        
     if braintrust:
         await eval_dataset_braintrust(
             repo_name, 
-            num_records,
-            strat=strat,
-            evaluator=evaluator,
-            n_times=n_times
+            dataset
         )
     else:
         await eval_dataset(
             repo_name, 
-            num_records,
-            strat=strat,
-            evaluator=evaluator,
-            n_times=n_times
+            dataset
         )
 
 @cli.command()
@@ -75,11 +110,11 @@ async def evaluate(repo_name: str, num_records: int, strat: str,
               help="Number of test functions to keep per module")
 @click.option("--delete", type=int, default=0,
               help="Number of test functions to delete per module")
-@click.option("--max-tm", type=int, default=5,
+@click.option("--num-tms", type=int, default=5,
               help="Maximum number of test modules to process")
 @coro
-async def setup_neutered_repo(repo_name: str, 
-                              keep: int, delete: int, max_tm: int):
+async def setup_eval_repo(repo_name: str, 
+                              keep: int, delete: int, num_tms: int):
     """Neuter a repository by removing test functions."""
     repo = get_repo(repo_name)
     base_cov = await run_test(repo.repo_name, None)
@@ -93,65 +128,62 @@ async def setup_neutered_repo(repo_name: str,
     src_repo = SourceRepo(Path(repo.source_folder))
     test_modules = iter_test_modules(src_repo)
 
-    click.echo(f"Creating {max_tm}/{len(test_modules)} datasets")
+    click.echo(f"Creating {num_tms}/{len(test_modules)} datasets")
     click.echo(f"Set \"--max-tm\" to change number of datasets to create")
     
-    for tm in test_modules[:max_tm]:
+    handicapped = []
+    for tm in test_modules[:num_tms]:
+        # try:
+        #     tm = get_tm(repo_name, tm.name)
+        # except Exception as e:
         chunks = await enrich_tm_with_tgt_coverage(repo.repo_name, src_repo, base_cov, tm)
         tm.chunks = chunks
 
-        await neuter_repo(
+        # remove tests from existing testfile
+        # NEWTODO: not handling cases where there are multiple testfiles mapped to a TestModule
+        testfile_fp, newfile_contents = await handicap_tm(
             dataset,
             repo.repo_name,
-            [tm],
+            tm,
             Path(repo.source_folder), 
-            base_cov=base_cov,
             to_keep=keep, 
             to_delete=delete,
         )
- 
+        handicapped.append((testfile_fp, newfile_contents))
+
+    # NOTE: need to do this here or else subsequent calls to run_testsuite in handicap_tm will reset
+    # the repo commit hash
+    for fp, content in handicapped:
+        with open(repo.source_folder / fp, "w", encoding="utf-8") as f:
+            f.write(content)
+
 @cli.command()
 @click.argument("repo_name", type=str)
-@click.option("--max-tm", type=int, default=5,
+@click.option("--num-tms", type=int, default=5,
               help="Maximum number of test modules to process")
 @coro
-async def setup_repo(repo_name: str, max_tm: int):
+async def setup_repo(repo_name: str, num_tms: int) -> Tuple[List[TestModule], List[TestModuleData]]:
     """Setup a repo for local test augmentation"""
-    repo = get_repo(repo_name)
-    base_cov = await run_test(repo.repo_name, None)
+    repo = get_repo(repo_name, ret_json=True)
+    base_cov = await run_test(repo["repo_name"], None, use_cache=True, delete_last=True)
     base_cov = base_cov.get_coverage()
     
-    dataset = init_dataset(
-        name=repo.repo_name, 
-        project=BT_PROJECT, 
-        api_key=BRAINTRUST_API_KEY
-    )
-    src_repo = SourceRepo(Path(repo.source_folder))
+    src_repo = SourceRepo(Path(repo["source_folder"]))
     test_modules = iter_test_modules(src_repo)
 
-    click.echo(f"Creating {max_tm}/{len(test_modules)} datasets", fg="green")
-    click.echo(f"Set \"--max-tm\" to change number of datasets to create", fg="yellow")
+    click.echo(f"Creating {num_tms}/{len(test_modules)} datasets")
+    click.echo(f"Set \"--max-tm\" to change number of datasets to create")
     
-    current_module = 0
-    while current_module < min(len(test_modules), max_tm):
-        try:
-            tm = test_modules[current_module]
-            chunks = await enrich_tm_with_tgt_coverage(repo.repo_name, src_repo, base_cov, tm)
-            tm.chunks = chunks
+    for tm in test_modules[:num_tms]:
+        chunks = await enrich_tm_with_tgt_coverage(repo["repo_name"], src_repo, base_cov, tm)
+        tm.chunks = chunks
 
-            tm_data = TestModuleData(
-                name=tm.name,
-                file_content=tm.test_file.to_code(),
-                repo_config=repo.to_dict(),
-            )
-            tm_data.persist(tm)
-
-            current_module += 1
-        except Exception as e:
-            click.echo(f"Error processing module {current_module}: {e}", err=True)
-            test_modules = test_modules[1:]
-            continue
-
+        tm_data = TestModuleData(
+            name=tm.name,
+            file_content=tm.test_file.to_code(),
+            repo_config=repo,
+        )
+        tm_data.persist(tm)
 
 @cli.command()
 @click.argument("output_path", type=click.Path(exists=True, path_type=Path))
@@ -161,7 +193,8 @@ async def apply(output_path: Path):
     
     test_cases_str = ""
     non_empty = []
-    for file in output_path.rglob("*.yml"):
+    files = [output_path] if output_path.is_file() else list(output_path.rglob("*.yml"))
+    for file in files:
         try:
             test_results = TestResults.from_file(file)
             validate(test_results)

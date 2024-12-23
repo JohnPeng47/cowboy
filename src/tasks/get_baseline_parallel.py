@@ -100,6 +100,7 @@ async def get_tm_target_coverage(
 
     module_diff = base_cov - module_cov.get_coverage()
     total_cov_diff = module_diff.total_cov.covered
+    log.info(f"Total coverage difference: {total_cov_diff}")
     if total_cov_diff > 0:
         chg_cov = []
         coroutines = []
@@ -130,7 +131,11 @@ async def get_tm_target_coverage(
             # part 3: we subtract the module from the 
             single_diff: TestCoverage = module_cov.get_coverage() - test_cov.get_coverage()
             if single_diff.total_cov.covered > 0:
+                # IDK why this happens .....
                 if single_diff.total_cov.covered > 1000: # BIG DIFF
+                    log.error("Big DIFF: ")
+                    log.error(f"ModuleCov: {module_cov.get_coverage()}")
+                    log.error(f"TestCov: {test_cov.get_coverage()}")
                     raise Exception("BIG DIFF")
                 
                 test_coverage[test.name] = single_diff.total_cov.covered

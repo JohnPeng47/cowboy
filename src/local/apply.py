@@ -21,8 +21,7 @@ def validate(results: TestResults) -> None:
     repo_config = get_repo(results.repo_name)
     src_commit_hash = get_repo_head(repo_config.source_folder)
     if src_commit_hash != results.git_hash:
-        raise TestApplyError(f"The head of the repo ({src_commit_hash[:7]}) at {repo_config.source_folder} \
-                             does not match the hash in the test results ({results.git_hash[:7]})")
+        raise TestApplyError(f"The head of the repo ({src_commit_hash[:7]}) at {repo_config.source_folder} does not match the hash in the test results ({results.git_hash[:7]})")
 
 def print_test_summary(fp: Path, 
                        test_results: TestResults) -> None:

@@ -17,13 +17,16 @@ class RepoConfigException(Exception):
     pass
 
 
-def get_repo_config(repo_name: str) -> RepoConfig:
+def get_repo_config(repo_name: str, ret_json = False) -> RepoConfig:
     filename = f"{repo_name}.json"
     with open(TESTCONFIG_ROOT / filename, "r") as f:
+        if ret_json:
+            return json.load(f)
+        
         config = RepoConfig(**json.load(f))
         if config.repo_name != repo_name:
             raise RepoConfigException(f"Config.repo_name must be the same as the filename {filename}")
-        
+    
         return config
 
 @cache_test_run

@@ -73,8 +73,6 @@ class AugmentAdditiveEvaluator(Evaluator):
                 og_testfile.append(
                     func.to_code(), class_name=func.scope.name if func.scope else ""
                 )
-                log.info(f"Patchfile: {og_testfile.to_code()}")
-
                 patch_file = PatchFile(
                     path=str(tm.path), patch=og_testfile.to_code()
                 )
@@ -88,22 +86,44 @@ class AugmentAdditiveEvaluator(Evaluator):
                 )
 
                 test_error = indvtest_cov.get_failed(func.name)
+                
                 if test_error:
-                    log.info(f"[FAILED] Generated Func: {func.name}")
+                    log.info(f"[FAILED] Generated Func: ")
+                    log.info({func.name})
+                    log.info(f"Patchfile: {og_testfile.to_code()}")
 
                     failed_tests.append((func, test_error))
                     continue
 
+                # indv_math = [
+                #     cov for cov in indvtest_cov.get_coverage().cov_list 
+                #     if cov.filename == "src/math_utils.py"
+                # ][0]
+                # mod_math = [
+                #     cov for cov in module_cov.cov_list 
+                #     if cov.filename == "src/math_utils.py"
+                # ][0]
+    
+
+                # log.info(f"IndvTest Coverage: {indv_math}")
+                # log.info(f"Module Coverage: {mod_math}")
+
+                log.info(f"IndvTest Coverage: {indvtest_cov.get_coverage()}")
+                log.info(f"Module Coverage: {module_cov}")
+
                 indv_improve = indvtest_cov.get_coverage() - module_cov
                 if indv_improve.total_cov.covered > 0:
-                    log.info(f"[IMPROVE] Generated Func: {func.name}")
-                    # log.info(f"Code: \n{func.to_code()}")
+                    log.info(f"[IMPROVE] Generated Func: ")
+                    log.info(func.name)
+                    log.info(f"Patchfile: {og_testfile.to_code()}")
 
                     improved_tests.append((func, indv_improve))
                 else:
-                    log.info(f"[NOIMPROVE] Generated Func: {func.name}")
-                    # log.info(f"Code: \n{func.to_code()}")
+                    log.info(f"[NOIMPROVE] Generated Func: ")
+                    log.info({func.name})
+                    log.info(f"Patchfile: {og_testfile.to_code()}")
 
                     noimprov_tests.append((func, TestCoverage([])))
+
 
         return improved_tests, failed_tests, noimprov_tests

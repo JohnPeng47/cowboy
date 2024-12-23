@@ -94,11 +94,12 @@ def cache_test_run(func):
             cached_result = read_cache(cache_key)
             if cached_result is not None:
                 caller = inspect.stack()[1]  # Get immediate caller
-                log.info(f"Returning from cache: {(repo_name, exclude_tests, include_tests)} \
-                        - called from {caller.filename}:{caller.lineno} in {caller.function}")
+                print(f"Returning from cache: {(repo_name, exclude_tests, include_tests)}")
+                print(f"|---> Called from {caller.filename}:{caller.lineno} in {caller.function}")
 
                 return cached_result
             
+        print("Returning actual result")
         # Run the actual function if not in cache
         result = await func(repo_name, service_args, exclude_tests, include_tests, patch_file, stream)
 

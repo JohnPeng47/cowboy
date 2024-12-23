@@ -1,10 +1,11 @@
-import yaml
 import json
 from dataclasses import dataclass, field, asdict
 from typing import List, Dict, Optional
 from pathlib import Path
 
 from src.config import EVAL_DATA_ROOT
+from src.utils import yaml
+from src.test_gen.augment_test.composer import TestAugmentArgs
 from cowboy_lib.test_modules import TestModule
 
 from .db import get_tm, get_repo, persist_tm
@@ -57,6 +58,9 @@ class TestModuleData:
     name: str
     file_content: str
     repo_config: Dict
+    # NOTE: have to include this field here because Braintrust expects a single
+    # Dict as input
+    run_args: TestAugmentArgs = None
 
     def get_tm(self) -> Optional[TestModule]:
         return get_tm(self.repo_config["repo_name"], self.name)
@@ -69,6 +73,16 @@ class TestModuleData:
             repo_config=data["repo_config"]
         )
     
+    def to_json(self) -> Dict:
+        return {
+            "name": self.name,
+            "file_content": self.file_content,
+            "repo_config": self.repo_config,
+        }
+    
+    def add_args(self, run_args: TestAugmentArgs):  
+        self.run_args = run_args
+
     def persist(self, tm: TestModule):
         repo_name = self.repo_config["repo_name"]
         repo_dir = EVAL_DATA_ROOT / repo_name
@@ -90,7 +104,7 @@ class TestModuleEvalData(TestModuleData):
     expected: int = 0
     tags: List[str] = field(default_factory=list)
         
-    def to_json(self) -> Dict:
+    def to_json_braintrust(self) -> Dict:
         return {
             "input": {
                 "name": self.name,
@@ -114,21 +128,37 @@ class TestModuleEvalData(TestModuleData):
             tags=data["tags"]
         )
     
-def read_rows(repo_name: str, limit=5) -> List["TestModuleEvalData"]:
+def read_rows(repo_name: str,
+              braintrust: bool,
+              list_tms: bool = False,
+              selected_tms: List[str] = [],
+              limit=0) -> List["TestModuleEvalData"]:
     """
     Read TestModuleRows from disk
     """
     repo_dir = EVAL_DATA_ROOT / repo_name
     if not repo_dir.exists():
         raise ValueError(f"Dataset directory {repo_dir} does not exist")
+    
+    if list_tms:
+        print(f"Reading {repo_name} dataset from {repo_dir}")
+        print("Available datasets:")
+        for file_path in repo_dir.glob("*.json"):
+            print(file_path.stem)
+        return []
 
     rows = []
-    print(f"Reading up to {limit} rows from {repo_dir}")
     for file_path in list(repo_dir.glob("*.json"))[:limit]:
-        print(f"Reading {repo_name} dataset from {file_path}")
+        if selected_tms and file_path.stem not in selected_tms:
+            continue
+
         with open(file_path) as f:
             data = json.load(f)
-            rows.append(TestModuleEvalData.from_json(data))
+
+            if not braintrust:
+                rows.append(TestModuleData.from_json(data))
+            else:
+                rows.append(TestModuleEvalData.from_json(data))
 
     print(f"Successfully read {len(rows)} rows from {repo_dir}")
     return rows

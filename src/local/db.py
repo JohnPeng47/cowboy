@@ -30,7 +30,7 @@ def get_tm(repo_name: str, tm_name: str) -> Optional[TestModule]:
         with open(tm_file, "r") as f:
             return TestModule.from_json(json.loads(f.read()))
     except FileNotFoundError:
-        raise DatasetCreationError(f"{tm_file} was not created during create_dataset. Try to rerun create_dataset")
+        raise DatasetCreationError(f"{tm_name} was not found. Consider rerunning setup_repo/setup_handicap to recreate the data")
 
 def persist_tm(repo_name: str, tm: TestModule):
     """
@@ -42,8 +42,8 @@ def persist_tm(repo_name: str, tm: TestModule):
     # Write the test module
     tm_file = tm_dir / f"{tm.name}.json"
     with open(tm_file, "w") as f:
-        json.dump(tm.to_json(), f, indent=2)
+        json.dump(m.to_json(), f, indent=2)
 
-def get_repo(repo_name: str) -> RepoConfig:
-    return get_repo_config(repo_name)
+def get_repo(repo_name: str, ret_json = False) -> RepoConfig:
+    return get_repo_config(repo_name, ret_json = ret_json)
 ####################################################################################################

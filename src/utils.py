@@ -4,10 +4,27 @@ import string
 import uuid
 import time
 import functools
-from src.logger import testgen_logger
 import git
+import configparser
 from pathlib import Path
 from colorama import Fore, Style
+from pathlib import Path
+from typing import List, Set
+
+from src.logger import testgen_logger
+
+
+# support for all strings as multi-line
+import yaml
+
+def str_presenter(dumper, data):
+    """Configure yaml for dumping multiline strings."""
+    if len(data.splitlines()) > 1:  # check for multiline string
+        return dumper.represent_scalar('tag:yaml.org,2002:str', data.strip(), style='|')
+    return dumper.represent_scalar('tag:yaml.org,2002:str', data)
+
+yaml.add_representer(str, str_presenter)
+
 
 # nested level get() function
 def resolve_attr(obj, attr, default=None):

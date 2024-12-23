@@ -6,7 +6,7 @@ from .augment_additive import AugmentAdditiveEvaluator
 from enum import Enum
 
 
-class EvaluatorType(Enum):
+class EvaluatorType(str, Enum):
     PARALLEL = "PARALLEL"
     ADDITIVE = "ADDITIVE"
 

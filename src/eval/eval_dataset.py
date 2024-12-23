@@ -1,9 +1,9 @@
 import dotenv
-from typing import Dict
+from typing import Dict, List
 from braintrust import EvalAsync
 
 from src.local.augment_tests import extend_tests
-from src.local.models import read_rows
+from src.local.models import read_rows, TestModuleData
 
 dotenv.load_dotenv()
 
@@ -28,25 +28,18 @@ def score_improved_tests(output: Dict, expected: int):
 
     return improved / (improved + no_improve + failed)
 
-async def eval_dataset(repo_name: str, 
-                      num_records: int = 0,
-                      strat: str = "WITH_CTXT",
-                      evaluator: str = "ADDITIVE",
-                      n_times: int = 2):
+async def eval_dataset(repo_name: str,
+                       tm_datalist: List[TestModuleData]):
     """
     Evaluate the dataset locally
     """
-    dataset = [datum.to_json() for datum in read_rows(repo_name)]
-    num_records = len(dataset) if num_records == 0 else num_records    
+    print("Evaluating TestModules => ", [tm["name"] for tm in tm_datalist])
 
-    datasetnames = ",".join([datum["input"]["name"] for datum in dataset[:num_records]])
-    print("Evaluating TestModules => ", datasetnames)
-
-    for dataset in dataset[:num_records]:
-        await extend_tests(dataset, strat=strat, evaluator=evaluator, n_times=n_times)
+    for dataset in tm_datalist:
+        await extend_tests(dataset)
 
 async def eval_dataset_braintrust(repo_name: str, 
-                                num_records: int = 0,
+                                num_tms: int = 0,
                                 strat: str = "WITH_CTXT",
                                 evaluator: str = "ADDITIVE",
                                 n_times: int = 2):
@@ -55,7 +48,7 @@ async def eval_dataset_braintrust(repo_name: str,
     """    
     # NEWTODO: use bt dataset
     # dataset = init_dataset(project="Cowboy", name=dataset_name, api_key=BRAINTRUST_API_KEY)
-    dataset = [datum.to_json() for datum in read_rows(repo_name)]
+    dataset = [datum.to_json_braintrust() for datum in read_rows(repo_name, run_or_eval="eval")]
     for d in dataset:
         d["input"].update({
             "strat": strat,
@@ -63,15 +56,15 @@ async def eval_dataset_braintrust(repo_name: str,
             "n_times": n_times
         })
     
-    num_records = len(dataset) if num_records == 0 else num_records
-    datasetnames = ",".join([datum["input"]["name"] for datum in dataset[:num_records]])
+    num_tms = len(dataset) if num_tms == 0 else num_tms
+    datasetnames = ",".join([datum["input"]["name"] for datum in dataset[:num_tms]])
     print("Evaluating TestModules => ", datasetnames)
 
     # NOTE: Braintrust eval expects a list of dicts
     await EvalAsync(
         repo_name,
-        dataset[:num_records],
+        dataset[:num_tms],
         extend_tests,
         [score_coverage, score_improved_tests],
-        experiment_name = f"{repo_name}::{strat}::{n_times}_n_times::{len(dataset[:num_records])}_TMs"
+        experiment_name = f"{repo_name}::{strat}::{n_times}_n_times::{len(dataset[:num_tms])}_TMs"
     )

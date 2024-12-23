@@ -154,102 +154,6 @@
         "scope": null
       },
       "class_scope": null
-    },
-    {
-      "range": [
-        24,
-        30
-      ],
-      "lines": [
-        "    if not isinstance(n, int):",
-        "        raise TypeError(\"Input must be an integer\")",
-        "    if n < 0:",
-        "        raise ValueError(\"Fibonacci is not defined for negative numbers\")",
-        "    if n <= 1:",
-        "        return n",
-        "    return fibonacci(n - 1) + fibonacci(n - 2) "
-      ],
-      "filepath": "src/math_utils.py",
-      "func_scope": null,
-      "class_scope": null
-    },
-    {
-      "range": [
-        25,
-        25
-      ],
-      "lines": [
-        "        raise TypeError(\"Input must be an integer\")"
-      ],
-      "filepath": "src/math_utils.py",
-      "func_scope": {
-        "name": "fibonacci",
-        "range": [
-          21,
-          29
-        ],
-        "lines": [
-          "def fibonacci(n):",
-          "    \"\"\"Return the nth Fibonacci number.\"\"\"",
-          "    if not isinstance(n, int):",
-          "        raise TypeError(\"Input must be an integer\")",
-          "    if n < 0:",
-          "        raise ValueError(\"Fibonacci is not defined for negative numbers\")",
-          "    if n <= 1:",
-          "        return n",
-          "    return fibonacci(n - 1) + fibonacci(n - 2)"
-        ],
-        "decorators": [],
-        "is_test": false,
-        "node_type": "Function",
-        "arguments": [
-          {
-            "name": "n",
-            "type": null
-          }
-        ],
-        "scope": null
-      },
-      "class_scope": null
-    },
-    {
-      "range": [
-        27,
-        27
-      ],
-      "lines": [
-        "        raise ValueError(\"Fibonacci is not defined for negative numbers\")"
-      ],
-      "filepath": "src/math_utils.py",
-      "func_scope": {
-        "name": "fibonacci",
-        "range": [
-          21,
-          29
-        ],
-        "lines": [
-          "def fibonacci(n):",
-          "    \"\"\"Return the nth Fibonacci number.\"\"\"",
-          "    if not isinstance(n, int):",
-          "        raise TypeError(\"Input must be an integer\")",
-          "    if n < 0:",
-          "        raise ValueError(\"Fibonacci is not defined for negative numbers\")",
-          "    if n <= 1:",
-          "        return n",
-          "    return fibonacci(n - 1) + fibonacci(n - 2)"
-        ],
-        "decorators": [],
-        "is_test": false,
-        "node_type": "Function",
-        "arguments": [
-          {
-            "name": "n",
-            "type": null
-          }
-        ],
-        "scope": null
-      },
-      "class_scope": null
     }
   ],
   "test_file": {
@@ -278,20 +182,7 @@
       "",
       "def test_is_prime_errors():",
       "    with pytest.raises(TypeError, match=\"Input must be an integer\"):",
-      "        is_prime(1.5)",
-      "",
-      "def test_fibonacci():",
-      "    assert fibonacci(0) == 0",
-      "    assert fibonacci(1) == 1",
-      "    assert fibonacci(2) == 1",
-      "    assert fibonacci(5) == 5",
-      "    assert fibonacci(6) == 8",
-      "",
-      "def test_fibonacci_errors():",
-      "    with pytest.raises(TypeError, match=\"Input must be an integer\"):",
-      "        fibonacci(1.5)",
-      "    with pytest.raises(ValueError, match=\"Fibonacci is not defined for negative numbers\"):",
-      "        fibonacci(-1) "
+      "        is_prime(1.5)"
     ]
   },
   "commit_sha": "",
@@ -363,45 +254,6 @@
         "def test_is_prime_errors():",
         "    with pytest.raises(TypeError, match=\"Input must be an integer\"):",
         "        is_prime(1.5)"
-      ],
-      "decorators": [],
-      "is_test": true,
-      "node_type": "Function",
-      "arguments": [],
-      "scope": null
-    },
-    {
-      "name": "test_fibonacci",
-      "range": [
-        25,
-        30
-      ],
-      "lines": [
-        "def test_fibonacci():",
-        "    assert fibonacci(0) == 0",
-        "    assert fibonacci(1) == 1",
-        "    assert fibonacci(2) == 1",
-        "    assert fibonacci(5) == 5",
-        "    assert fibonacci(6) == 8"
-      ],
-      "decorators": [],
-      "is_test": true,
-      "node_type": "Function",
-      "arguments": [],
-      "scope": null
-    },
-    {
-      "name": "test_fibonacci_errors",
-      "range": [
-        32,
-        36
-      ],
-      "lines": [
-        "def test_fibonacci_errors():",
-        "    with pytest.raises(TypeError, match=\"Input must be an integer\"):",
-        "        fibonacci(1.5)",
-        "    with pytest.raises(ValueError, match=\"Fibonacci is not defined for negative numbers\"):",
-        "        fibonacci(-1)"
       ],
       "decorators": [],
       "is_test": true,

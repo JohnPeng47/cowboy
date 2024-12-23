@@ -9,7 +9,6 @@ from .evaluators import (
 )
 
 from cowboy_lib.llm.invoke_llm import invoke_llm_async
-from cowboy_lib.llm.models import OpenAIModel, ModelArguments
 from cowboy_lib.repo.repository import PatchFile
 from cowboy_lib.repo.source_repo import SourceRepo
 from cowboy_lib.repo.source_file import Function, LintException
@@ -21,11 +20,24 @@ from src.runner.service import RunServiceArgs
 from src.exceptions import CowboyRunTimeException
 from src.logger import testgen_logger as log
 
-
 from src.config import LLM_RETRIES
 
+from src.llm import LLMModel
+from dataclasses import dataclass
 from typing import Tuple, List, Callable
 
+
+@dataclass
+class TestAugmentArgs:
+    strat: AugmentStratType
+    n_times: int
+    evaluator: EvaluatorType
+
+
+MODEL_PROVIDER_MAP = {
+    "openai": "gpt-4o",
+    # "anthropic": ""
+}
 
 class Composer:
     """
@@ -40,7 +52,8 @@ class Composer:
         src_repo: SourceRepo,
         test_input: TestCaseInput,
         run_args: RunServiceArgs,
-        api_key: str,
+        api_key: str = None,
+        provider: str = "openai",
         verify: bool = False,
         run_test: Callable = None
     ):
@@ -56,8 +69,12 @@ class Composer:
             self.repo_name, self.src_repo, self.run_args, test_input, self.run_test
         )
 
-        model_name = "gpt4"
-        self.model = OpenAIModel(ModelArguments(model_name=model_name, api_key=api_key))
+        self.model_provider = provider
+        self.model = LLMModel(
+            provider=provider,
+        )
+        log.info(f"LLM model: {self.model_provider} => {MODEL_PROVIDER_MAP[self.model_provider]} ")
+        
 
     def get_strat_name(self) -> str:
         return self.__class__.__name__
@@ -78,36 +95,36 @@ class Composer:
         return no_overlap
 
     # TODO: this function name is a lie, we should parallelize this
-    async def gen_test_parallel(self, n_times: int) -> Tuple[
-        List[Tuple[Function, TestCoverage]],
-        List[Tuple[Function, TestError]],
-        List[Function],
-    ]:
-        improved_tests = []
-        failed_tests = []
-        no_improve_tests = []
+    # async def gen_test_parallel(self, n_times: int) -> Tuple[
+    #     List[Tuple[Function, TestCoverage]],
+    #     List[Tuple[Function, TestError]],
+    #     List[Function],
+    # ]:
+    #     improved_tests = []
+    #     failed_tests = []
+    #     no_improve_tests = []
 
-        prompt = self.strat.build_prompt()
-        print(f"Prompt: {prompt}")
+    #     prompt = self.strat.build_prompt()
+    #     print(f"Prompt: {prompt}")
 
-        model_res = await invoke_llm_async(prompt, self.model, n_times)
-        llm_results = [self.strat.parse_llm_res(res) for res in model_res]
-        test_results = [StratResult(res, self.test_input.path) for res in llm_results]
-        improved, failed, no_improve = await self.evaluator(
-            test_results,
-            self.test_input,
-            self.base_cov,
-            n_times=n_times,
-        )
+    #     model_res = await invoke_llm_async(prompt, self.model, n_times)
+    #     llm_results = [self.strat.parse_llm_res(res) for res in model_res]
+    #     test_results = [StratResult(res, self.test_input.path) for res in llm_results]
+    #     improved, failed, no_improve = await self.evaluator(
+    #         test_results,
+    #         self.test_input,
+    #         self.base_cov,
+    #         n_times=n_times,
+    #     )
 
-        improved_tests.extend(improved)
-        filtered_improved = self.filter_overlap_improvements(improved_tests)
-        improved_tests = filtered_improved
+    #     improved_tests.extend(improved)
+    #     filtered_improved = self.filter_overlap_improvements(improved_tests)
+    #     improved_tests = filtered_improved
 
-        failed_tests.extend(failed)
-        no_improve_tests.extend(no_improve)
+    #     failed_tests.extend(failed)
+    #     no_improve_tests.extend(no_improve)
 
-        return improved_tests, failed_tests, no_improve_tests
+    #     return improved_tests, failed_tests, no_improve_tests
 
     async def gen_test_serial_additive(self, n_times: int) -> Tuple[
         List[Tuple[Function, TestCoverage]],
@@ -139,9 +156,8 @@ class Composer:
                 self.run_args, 
                 include_tests=[self.test_input.name],
                 patch_file=updated_patchfile,
+                use_cache=False
             )
-            
-            log.info(f"Patchfile: {updated_patchfile}")
 
             module_cov = module_cov.get_coverage()
             test_result = [StratResult(src_file, self.test_input.path)]
@@ -153,11 +169,12 @@ class Composer:
                 n_times=n_times,
             )
             improved_tests.extend(improved)
-
-            log.info(f"Round [{i}/{n_times}] => Improved: {len(improved)}, Failed: {len(failed)}, NoImprove: {len(no_improve)}")
-
             filtered_improved = self.filter_overlap_improvements(improved_tests, module_cov)
             improved_tests = filtered_improved
+
+            log.info(f"Filtered out: {len(improved) - len(filtered_improved)} tests")
+            log.info(f"Round [{i + 1}/{n_times}] => Improved: {len(improved)}, Failed: {len(failed)}, NoImprove: {len(no_improve)}")
+
             # update test input with new functions that improved coverage
             for new_func in [
                 func
@@ -200,12 +217,11 @@ class Composer:
         
         while retries > 0 and not src_file:
             try:
-                llm_res = await invoke_llm_async(
+                llm_res = self.model.invoke(
                     prompt,
-                    model=self.model,
-                    n_times=1,
+                    model_name = MODEL_PROVIDER_MAP.get(self.model.provider)
                 )
-                src_file = self.strat.parse_llm_res(llm_res[0])
+                src_file = self.strat.parse_llm_res(llm_res)
             except (SyntaxError, ValueError, LintException):
                 log.info(f"LLM syntax error ... {retries} left")
                 retries -= 1

@@ -7,9 +7,11 @@ from src.logger import testgen_logger, buildtm_logger, MultiLogger
 
 from .models import RepoConfig
 
+from io import StringIO
+import configparser
 import os
 import subprocess
-from typing import List, Tuple, NewType, Dict
+from typing import List, Tuple, NewType, Dict, Set
 import json
 import hashlib
 from pathlib import Path
@@ -63,6 +65,64 @@ def hash_coverage_inputs(directory: Path, cmd_str: str) -> str:
 
     combined_hash.update(cmd_str.encode())
     return combined_hash.hexdigest()
+
+def update_coverage_omits(filepath: str = ".coveragerc") -> str:
+    """
+    Update .coveragerc file to include standard omit patterns in the [run] section.
+    Creates the omit section if it doesn't exist. Creates the file if it doesn't exist.
+    
+    Args:
+        filepath (str): Path to the .coveragerc file
+    
+    Returns:
+        str: The updated configuration as a string
+    """
+    DEFAULT_OMITS = [
+        ".env/*",
+        "build/*",
+        "dist/*", 
+        "venv/*",
+        "tests/*",
+        "*/tests/*",
+        "test_*",
+        "*_test.py"
+    ]
+    
+    # Create empty file if it doesn't exist
+    if not os.path.exists(filepath):
+        with open(filepath, "w") as f:
+            f.write("")
+    
+    # Read existing config
+    config = configparser.ConfigParser()
+    config.read(filepath)
+    
+    # Ensure [run] section exists
+    if "run" not in config:
+        config["run"] = {}
+    
+    # Get current omits if they exist
+    current_omits: Set[str] = set()
+    if "omit" in config["run"]:
+        # Handle multiline omit values
+        omit_str = config["run"]["omit"].strip()
+        if omit_str:
+            # Split by commas and/or newlines, strip whitespace and filter empty strings
+            current_omits = {
+                item.strip() for item in omit_str.replace("\n", ",").split(",")
+                if item.strip()
+            }
+    
+    # Add new omits
+    updated_omits = current_omits.union(DEFAULT_OMITS)
+    
+    # Format the omit string with each pattern on a new line
+    formatted_omits = "\n    ".join(sorted(updated_omits))
+    config["run"]["omit"] = f"\n    {formatted_omits}"
+    
+    output = StringIO()
+    config.write(output)
+    return output.getvalue()
 
 class LockedRepos:
     """
@@ -229,55 +289,8 @@ class PytestDiffRunner:
     
     def _get_coveragerc(self, base_path: Path) -> str:
         """Returns a .coveragerc file that omits test file patterns along with the original content"""
-        
-        omit_patterns = [
-            "venv/*",
-            "tests/*",
-            "*/tests/*",
-            "test_*",
-            "*_test.py"
-        ]
-
-        default_config = f"""[run]
-omit = 
-    {chr(10).join('    ' + p for p in omit_patterns)}
-"""
-        try:
-            with open(base_path / ".coveragerc", "r") as f:
-                existing_config = f.read()
-                if "[run]" in existing_config:
-                    lines = existing_config.splitlines()
-                    omit_start = -1
-                    for i, line in enumerate(lines):
-                        if line.strip() == "[run]":
-                            omit_start = i
-                        elif omit_start >= 0 and line.strip().startswith("omit"):
-                            # Check which patterns are missing from existing omit section
-                            existing_patterns = set()
-                            j = i + 1
-                            while j < len(lines) and lines[j].startswith(" "):
-                                pattern = lines[j].strip()
-                                if pattern:
-                                    existing_patterns.add(pattern)
-                                j += 1
-                            
-                            # Only add missing patterns
-                            missing_patterns = [p for p in omit_patterns if p not in existing_patterns]
-                            if missing_patterns:
-                                lines[i] += f"\n    {chr(10).join('    ' + p for p in missing_patterns)}"
-                            return "\n".join(lines)
-                    
-                    # No omit section found, add it under [run]
-                    if omit_start >= 0:
-                        lines.insert(omit_start + 1, f"omit = \n    {chr(10).join('    ' + p for p in omit_patterns)}")
-                        return "\n".join(lines)
-                
-                # No [run] section found, append entire default config
-                return existing_config + "\n" + default_config
-                
-        except FileNotFoundError:
-            return default_config
-
+        return update_coverage_omits(base_path / ".coveragerc")
+  
     def _construct_cmd(
         self, 
         repo_path: Path,  
@@ -384,14 +397,15 @@ omit =
                 patch_file.path = git_repo.repo_folder / patch_file.path
 
             # create patchfile for coveragerc
-            coverage_rc = self._get_coveragerc(git_repo.repo_folder)
+            # coverage_rc = self._get_coveragerc(git_repo.repo_folder)
 
-            patches.append(PatchFile(
-                path=git_repo.repo_folder / ".coveragerc", 
-                patch=coverage_rc
-            ))
+            # patches.append(PatchFile(
+            #     path=git_repo.repo_folder / ".coveragerc", 
+            #     patch=coverage_rc
+            # ))
             if patch_file:
                 patches.append(patch_file)
+                print(patch_file.patch)
                 
             env = os.environ.copy()
             if self.python_path:
