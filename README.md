@@ -96,4 +96,3 @@ More about this is in the docs/evaluations.txt
 ## Contributing
 Would love to take contributions on the following:
 1. Support for languages other than Python
-- very doable, just a matter of extending the test runner interface (ie. Pytest, Grunt, JUnit, etc.) 
