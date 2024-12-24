@@ -6,10 +6,10 @@ Here are some evaluation results from running this on codecovapi (more detailed 
 https://www.braintrust.dev/app/Cowboy/p/codecovapi-neutered/experiments/codecovapi-neutered%3A%3AWITH_CTXT%3A%3A2_n_times%3A%3A5_TMs?c=codecovapi-neutered::WITH_CTXT::3_n_times::1_TMs
 
 ## How it works
-LLMs are the core component and it requires two pieces of context to extend a unit test suite:\
+LLMs are the core component and it requires two pieces of context to extend a unit test suite:
 1. The currently existing tests
 2. The source file(s) that the tests cover
-(1) is given and (2) can be inferred from the unique coverage contributed by a test suite. More info on this in docs/detailed.txt.
+(1) is given and (2) can be inferred from the unique coverage contributed by a test suite. (**More info on this in docs/detailed.txt.**)
 
 ## How to run
 1. First define a config for your repo in src/eval/configs/<repo_name>.json
