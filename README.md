@@ -9,7 +9,7 @@ https://www.braintrust.dev/app/Cowboy/p/codecovapi-neutered/experiments/codecova
 LLMs are the core component and it requires two pieces of context to extend a unit test suite:
 1. The currently existing tests
 2. The source file(s) that the tests cover
-(1) is given and (2) can be inferred from the unique coverage contributed by a test suite. (**More info on this in docs/detailed.txt.**)
+(1) is given and (2) can be inferred using a novel coverage diffing algorithm (**More info on this in docs/detailed.txt.**)
 
 ## How to run
 1. First define a config for your repo in src/eval/configs/<repo_name>.json
