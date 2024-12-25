@@ -9,15 +9,22 @@ from src.runner.local.run_test import run_test
 from src.config import COWBOY_OPENAI_API_KEY, EVAL_OUTPUT_ROOT
 
 # should probably move this to another folder
-from src.local.models import TestCase, TestResults, TestModuleData
+from src.local.models import TestCase, TestResults, TestModuleData, TestModuleEvalData
 
 
 async def extend_tests(data: Dict):
-    repo_data = TestModuleData.from_json(data)  
+    if data.get("input", None):
+        repo_data = TestModuleEvalData.from_json(data["input"])
+        strat = data["input"]["strat"]
+        evaluator = data["input"]["evaluator"]
+        n_times = data["input"]["n_times"]
 
-    strat = data["strat"]
-    evaluator = data["evaluator"]
-    n_times = data["n_times"]
+    else:
+        repo_data = TestModuleData.from_json(data)  
+        strat = data["strat"]
+        evaluator = data["evaluator"]
+        n_times = data["n_times"]
+
     tm = repo_data.get_tm()
     
     src_repo = SourceRepo(Path(repo_data.repo_config["source_folder"]))

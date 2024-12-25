@@ -1,0 +1,28 @@
+repo_name: codecovapi-neutered
+git_hash: 3f3d1e86f5e2a51b2f45e5955bb464346a904c59
+tm_name: TestBitbucketServerWebhookHandler
+tests:
+- name: TestBitbucketServerWebhookHandler.test_repo_refs_change_event_branch_deleted
+  coverage_added: 4
+  code: |-
+    def test_repo_refs_change_event_branch_deleted(self):
+            Branch.objects.create(repository=self.repo, name="name-of-branch")
+            response = self._post_event_data(
+                event=BitbucketServerWebhookEvents.REPO_REFS_CHANGED,
+                data={
+                    "repository": {"id": "673a6070-3421-46c9-9d48-90745f7bfe8e"},
+                    "push": {
+                        "changes": {
+                            "old": {
+                                "type": "branch",
+                                "name": "name-of-branch",
+                                "target": {},
+                            }
+                        }
+                    },
+                },
+            )
+            assert response.status_code == status.HTTP_200_OK
+            assert not Branch.objects.filter(
+                repository=self.repo, name="name-of-branch"
+            ).exists()

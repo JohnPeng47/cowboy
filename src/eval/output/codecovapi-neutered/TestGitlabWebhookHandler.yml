@@ -1,0 +1,41 @@
+repo_name: codecovapi-neutered
+git_hash: 3f3d1e86f5e2a51b2f45e5955bb464346a904c59
+tm_name: TestGitlabWebhookHandler
+tests:
+- name: TestGitlabWebhookHandler.test_handle_job_event_skip_pending_statuses
+  coverage_added: 10
+  code: |-
+    def test_handle_job_event_skip_pending_statuses(self):
+            repo = RepositoryFactory(author=OwnerFactory(service="gitlab"), active=True)
+            data = {"project_id": repo.service_id, "build_status": "pending"}
+            response = self._post_event_data(GitLabWebhookEvents.JOB, data)
+            assert response.status_code == status.HTTP_200_OK
+            assert response.data == WebhookHandlerErrorMessages.SKIP_PENDING_STATUSES
+- name: TestGitlabWebhookHandler.test_handle_job_event_commit_not_found
+  coverage_added: 15
+  code: |-
+    def test_handle_job_event_commit_not_found(self):
+            repo = RepositoryFactory(author=OwnerFactory(service="gitlab"), active=True)
+            data = {
+                "project_id": repo.service_id,
+                "build_status": "success",
+                "sha": "fake_sha",
+            }
+            response = self._post_event_data(GitLabWebhookEvents.JOB, data)
+            assert response.status_code == status.HTTP_200_OK
+            assert response.data == WebhookHandlerErrorMessages.SKIP_PROCESSING
+- name: TestGitlabWebhookHandler.test_handle_merge_request_event_close
+  coverage_added: 20
+  code: |-
+    def test_handle_merge_request_event_close(self):
+            repo = RepositoryFactory(author=OwnerFactory(service="gitlab"), active=True)
+            pull = PullFactory(repository=repo, pullid=1, state=PullStates.OPEN)
+            data = {
+                "project_id": repo.service_id,
+                "object_attributes": {"iid": pull.pullid, "action": "close"},
+            }
+            response = self._post_event_data(GitLabWebhookEvents.MERGE_REQUEST, data)
+            assert response.status_code == status.HTTP_200_OK
+            assert response.data == "Pull request closed"
+            pull.refresh_from_db()
+            assert pull.state == PullStates.CLOSED

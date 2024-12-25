@@ -50,6 +50,8 @@ class TestResults:
         return asdict(self)
     
 
+
+
 @dataclass
 class TestModuleData:
     """
@@ -104,26 +106,36 @@ class TestModuleEvalData(TestModuleData):
     expected: int = 0
     tags: List[str] = field(default_factory=list)
         
+    def to_json(self) -> Dict:
+        return {
+            "name": self.name,
+            "file_content": self.file_content,
+            "repo_config": self.repo_config,
+            "expected": self.expected,
+            "tags": self.tags
+        }
+    
     def to_json_braintrust(self) -> Dict:
         return {
             "input": {
                 "name": self.name,
                 "file_content": self.file_content,
-                "repo_config": self.repo_config
+                "repo_config": self.repo_config,
+
             },
             "expected": self.expected,
-            "metadata": {},
             "tags": self.tags
         }
-
+    
     @classmethod
     def from_json(cls, data) -> "TestModuleEvalData":
-        input = data["input"]
+        if not data.get("expected", None):
+            raise ValueError("This data is probably not generated from setup-eval-repo")
 
         return cls(
-            name=input["name"],
-            file_content=input["file_content"],
-            repo_config=input["repo_config"],
+            name=data["name"],
+            file_content=data["file_content"],
+            repo_config=data["repo_config"],
             expected=data["expected"],
             tags=data["tags"]
         )

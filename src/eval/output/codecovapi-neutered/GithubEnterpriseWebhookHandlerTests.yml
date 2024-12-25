@@ -1,0 +1,17 @@
+repo_name: codecovapi-neutered
+git_hash: 3f3d1e86f5e2a51b2f45e5955bb464346a904c59
+tm_name: GithubEnterpriseWebhookHandlerTests
+tests:
+- name: GithubEnterpriseWebhookHandlerTests.test_invalid_signature_raises_permission_denied
+  coverage_added: 2
+  code: |-
+    def test_invalid_signature_raises_permission_denied(self):
+            with self.assertRaises(PermissionDenied):
+                self.client.post(
+                    reverse("github_enterprise-webhook"),
+                    data={"action": "publicized"},
+                    format="json",
+                    HTTP_X_HUB_SIGNATURE_256="sha256=invalidsignature",
+                    HTTP_X_GITHUB_EVENT=GitHubWebhookEvents.REPOSITORY,
+                    HTTP_X_GITHUB_DELIVERY=str(uuid.uuid4()),
+                )

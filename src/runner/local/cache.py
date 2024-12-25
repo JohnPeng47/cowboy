@@ -99,8 +99,11 @@ def cache_test_run(func):
 
                 return cached_result
             
-        print("Returning actual result")
-        # Run the actual function if not in cache
+        # collecting basecov for the first time, we will stream the result to the console
+        if not exclude_tests and not include_tests and not patch_file:
+            log.info("First time running base coverage, streaming to console")
+            stream = True
+
         result = await func(repo_name, service_args, exclude_tests, include_tests, patch_file, stream)
 
         if use_cache and not cached_result:

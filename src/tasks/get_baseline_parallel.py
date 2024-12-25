@@ -11,6 +11,11 @@ from pathlib import Path
 import asyncio
 from collections import defaultdict
 
+REPO_STATE_RESET_MSG = """
+Abnormally large coverage difference found, possible that you did not reset the repo state
+after running setup-eval-repo. Try to `git reset --hard` your target repo and run this again
+"""
+
 class BigDiff(Exception):
     pass
 
@@ -131,12 +136,9 @@ async def get_tm_target_coverage(
             # part 3: we subtract the module from the 
             single_diff: TestCoverage = module_cov.get_coverage() - test_cov.get_coverage()
             if single_diff.total_cov.covered > 0:
-                # IDK why this happens .....
                 if single_diff.total_cov.covered > 1000: # BIG DIFF
-                    log.error("Big DIFF: ")
-                    log.error(f"ModuleCov: {module_cov.get_coverage()}")
-                    log.error(f"TestCov: {test_cov.get_coverage()}")
-                    raise Exception("BIG DIFF")
+                    # log.error("Big diff found")
+                    raise Exception(REPO_STATE_RESET_MSG)
                 
                 test_coverage[test.name] = single_diff.total_cov.covered
                 total_covered += single_diff.total_cov.covered

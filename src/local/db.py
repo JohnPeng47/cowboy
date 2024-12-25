@@ -42,7 +42,7 @@ def persist_tm(repo_name: str, tm: TestModule):
     # Write the test module
     tm_file = tm_dir / f"{tm.name}.json"
     with open(tm_file, "w") as f:
-        json.dump(m.to_json(), f, indent=2)
+        json.dump(tm.to_json(), f, indent=2)
 
 def get_repo(repo_name: str, ret_json = False) -> RepoConfig:
     return get_repo_config(repo_name, ret_json = ret_json)

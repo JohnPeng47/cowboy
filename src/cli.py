@@ -83,20 +83,40 @@ async def evaluate(repo_name: str,
     elif num_tms:
         tm_datalist = read_rows(repo_name, braintrust, limit=num_tms)
 
-    dataset = [datum.to_json() for datum in tm_datalist]
-    for d in dataset:
-        d.update(
-            {
-                "strat": strat,
-                "evaluator": evaluator,
-                "n_times": n_times
-            }
-        )
-        
+    # convert to braintrust
+    if braintrust:
+        dataset = [datum.to_json_braintrust() for datum in tm_datalist]
+        tm_names = [d["input"]["name"] for d in dataset]
+        for d in dataset:
+            d["input"].update(
+                {
+                    "strat": strat,
+                    "evaluator": evaluator,
+                    "n_times": n_times
+                }
+            )
+
+    else:
+        dataset = [datum.to_json() for datum in tm_datalist]
+        tm_names = [d["name"] for d in dataset]
+        for d in dataset:
+            d.update(
+                {
+                    "strat": strat,
+                    "evaluator": evaluator,
+                    "n_times": n_times
+                }
+            )
+
+    print("Evaluating TestModules => ", tm_names)
+
     if braintrust:
         await eval_dataset_braintrust(
             repo_name, 
-            dataset
+            dataset,
+            strat,
+            n_times,
+            num_tms
         )
     else:
         await eval_dataset(
