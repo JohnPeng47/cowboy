@@ -1,8 +1,35 @@
-Here are the steps taken by Cowboy to generate a unit test:
-1. Create repo
-2. Find all TestModules inside repo. A TestModule is just a container for a set of tests. In Python/Pytest, it is either the source file of the test itself or its a class that implements its testcases as methods. Each TestModule will be associated with a single test file.
+## Setup Coverage Collection
+One of the key pieces of context we need is to know which lines of code is *uniquely* covered by a TestModule vs. the rest of the tests. Most (all?) test runners will only give you line coverage for *all* the lines that are covered when running the test. Unless the source file under test is abnormally isolated, chances are they will have dependencies on other source files, which will get pulled into the test coverage. And placing *all* of the source files into the prompt context is:
+1) Likely overflow the context
+2) Induce the LLM to write tests for source files that are already covered under other tests
 
-test_file.py
+The first way I went about to solve this is by subtracting (set difference) the base coverage (coverage of whole repo) by the base coverage subtracted by module coverage (coverage of a single TestModule) deselected:
+
+base_cov -> [1,2,3,4,5] -------: f1.py
+mod_cov -> [3,4,5] ------------: f1.py
+base_cov - mod_cov -> [1,2] ---: f1.py
+base_cov - (base_cov - mod_cov) = mod_cov   # aha mod_cov covers line [1,2] of f1.py
+
+(note: the value of mod_cov cannot be recovered directly, since we can only deselect tests, so we only know base_cov and (base_cov - mod_cov) beforehand).
+
+The example above is actually an ideal case because in alot of cases, the set of source lines covered by mod_cov will *likely* be covered another test that a part of base_cov. So this won't work, at least not well enough for us to generalize. The next solution I found, and which is currently the one that I am implementing in Cowboy, is to take the same coverage diffing principal from before, but this time, in a way that has less overlap between [cov1,cov2] in cov1 - (cov1 - cov2). 
+- instead of using base_cov for cov1, I use mod_cov
+- instead of using mod_cov for cov1 - cov2, I use mod_cov - test_i_cov, the TestModule coverage with test i deselected
+- then I do:
+
+total_cov;
+for i in len(tests):
+  total_cov += mod_cov - (mod_cov - test_{i}_cov)
+
+So now, instead of the potential coverage overlap being between all the tests inside TestModule and all the test in the whole repo, we now only have to consider overlap between a single test in TestModule and all the other tests in TestModule. 
+
+So yeah... Hopefully this explanation made sense and you can understand why Cowboy is slow as s**t when running the initial `setup-repo` command. Maybe this is overly convoluted but the test -> source mapping is really nessescary to get good results from the LLM. One added benefit of this is, we are able to get the numeric coverage generated per test, and this can be used in the evaluations to measure gain from new tests (more on this in docs/evaluations).
+
+## TestModules
+This is the main abstraction inside of Cowboy. It is used to represent a container for a set of tests. It can either be a file or a class (with its methods being test cases):
+Here is an example:
+
+TM 1: test_file.py
 
 import pytest
 def test1(): 
@@ -11,6 +38,7 @@ def test1():
 def test2():
   ...
 
+TM 2
 class TestClass:
   def test_meth1():
     ...
@@ -20,18 +48,3 @@ class TestClass:
 So for the above, two TestModules will be created, along with their associated tests 
 TM1: test_file.py --(tests)--> test_file.py::test1, test_file.py::test2
 TM2: TestClass    --(tests)--> TestClass::test_meth1, TestClass::test_meth2 
-
-3. For each TestModule, prompt a LLM with the following to generate a batch of tests
-"""
-Given the following existing test suite:
-{existing_tests}
-For the source file(s):
-{source_file for source_file in from_step3}
-Extend it with additional unittests that improve coverage
-"""
-
-4. Get the coverage contributed by each new testfile. Throw away all those that error'd out or failed to contribute coverage
-
-5. Write the coverage improving tests to the test file, loop 4-6 until some iterations N has been reached. This way of incrementally adding new generated tests to the prompt context pushes the LLM to consider new uncovered test conditions
-
-6. Collect generated tests, each contributing new coverage. Win!
