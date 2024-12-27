@@ -8,21 +8,19 @@ from .evaluators import (
     AUGMENT_EVALS,
 )
 
-from cowboy_lib.llm.invoke_llm import invoke_llm_async
 from cowboy_lib.repo.repository import PatchFile
 from cowboy_lib.repo.source_repo import SourceRepo
 from cowboy_lib.repo.source_file import Function, LintException
 from cowboy_lib.coverage import TestCoverage, TestError
-from cowboy_lib.test_modules import TestModule
 
 from src.test_gen.augment_test.strats import AugmentStratType, AUGMENT_STRATS
 from src.runner.service import RunServiceArgs
 from src.exceptions import CowboyRunTimeException
+from src.llm import LLMModel, Model
 from src.logger import testgen_logger as log
 
 from src.config import LLM_RETRIES
 
-from src.llm import LLMModel
 from dataclasses import dataclass
 from typing import Tuple, List, Callable
 
@@ -32,6 +30,7 @@ class TestAugmentArgs:
     strat: AugmentStratType
     n_times: int
     evaluator: EvaluatorType
+    model_name: str
 
 
 MODEL_PROVIDER_MAP = {
@@ -40,7 +39,7 @@ MODEL_PROVIDER_MAP = {
 }
 
 class Composer:
-    """
+    """s
     Used to instantiate different combinations of strategies for generating test cases
     """
 
@@ -52,8 +51,8 @@ class Composer:
         src_repo: SourceRepo,
         test_input: TestCaseInput,
         run_args: RunServiceArgs,
+        model: Model,
         api_key: str = None,
-        provider: str = "openai",
         verify: bool = False,
         run_test: Callable = None
     ):
@@ -69,12 +68,14 @@ class Composer:
             self.repo_name, self.src_repo, self.run_args, test_input, self.run_test
         )
 
-        self.model_provider = provider
-        self.model = LLMModel(
-            provider=provider,
-        )
-        log.info(f"LLM model: {self.model_provider} => {MODEL_PROVIDER_MAP[self.model_provider]} ")
-        
+        self.model_name = model
+        self.model = LLMModel()
+
+        log.info(f"Test augmentation parameters:")
+        log.info(f"  Strategy: {strat}")
+        log.info(f"  Evaluator: {evaluator}")
+        log.info(f"  Model: {model}")
+        log.info(f"  Number of iterations: {n_times}")
 
     def get_strat_name(self) -> str:
         return self.__class__.__name__
@@ -149,7 +150,7 @@ class Composer:
         for i in range(n_times):
             src_file = await self._llm_generate_with_retry(prompt)
 
-            # need to update the contents of test_file to account for new tests that
+            # need to update the contents of tesst_file to account for new tests that
             # have been generated
             module_cov = await self.run_test(
                 self.repo_name, 
@@ -219,7 +220,7 @@ class Composer:
             try:
                 llm_res = self.model.invoke(
                     prompt,
-                    model_name = MODEL_PROVIDER_MAP.get(self.model.provider)
+                    model_name = self.model_name
                 )
                 src_file = self.strat.parse_llm_res(llm_res)
             except (SyntaxError, ValueError, LintException):

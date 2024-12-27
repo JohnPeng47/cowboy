@@ -1,14 +1,12 @@
-from typing import Any, Dict, Optional, Type, Union
+from typing import Any, Dict, Optional, Type
 import inspect
 from pathlib import Path
-import yaml
 import sqlite3
 import hashlib
 import json
+from enum import Enum
 
 from langchain_core.messages.base import BaseMessage
-from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.language_models.llms import BaseLLM
 from langchain_openai import ChatOpenAI
 from langchain_anthropic import ChatAnthropic
 
@@ -21,6 +19,11 @@ def num_tokens_from_string(string: str, encoding_name: str = "cl100k_base") -> i
     num_tokens = len(encoding.encode(string, disallowed_special=()))
     return num_tokens
 
+class Model(str, Enum):
+    GPT4O = "gpt-4o"
+    CLAUDE = "claude-3-5-sonnet-latest"
+    DEEPSEEK = "deepseek"
+    
 class LLMModel:
     """
     A flexible wrapper class for LangChain language models that supports arbitrary configuration.
@@ -45,13 +48,12 @@ class LLMModel:
     
     # Mapping of provider names to their corresponding LangChain model classes
     PROVIDER_MAP = {
-        "openai": ChatOpenAI,
-        "anthropic": ChatAnthropic,
+        Model.GPT4O: ChatOpenAI,
+        Model.CLAUDE: ChatAnthropic,
     }
     
     def __init__(
         self,
-        provider: str,
         configpath: Path = Path(__file__).parent / "cache.yaml",
         dbpath: Path = Path(__file__).parent / "llm_cache.db"
     ) -> None:
@@ -61,13 +63,6 @@ class LLMModel:
         Args:
             provider: The name of the model provider (e.g., "openai", "anthropic")
         """
-        if provider not in self.PROVIDER_MAP:
-            raise ValueError(
-                f"Unsupported provider: {provider}. "
-                f"Supported providers are: {list(self.PROVIDER_MAP.keys())}"
-            )
-        
-        self.provider = provider
         self.config = self._read_config(configpath)
         
         # Initialize cache-related attributes
@@ -100,11 +95,10 @@ class LLMModel:
     def use_model(self, 
                   model_name: str, 
                   temperature: int = 0,
-                  provider: str = None,
                   **kwargs: Any):
-        provider = provider if provider else self.provider    
-        model_class = self.PROVIDER_MAP[provider]
-
+        
+        model_class = self.PROVIDER_MAP[model_name]
+        
         return model_class(
             model=model_name,
             **kwargs
@@ -208,12 +202,13 @@ class LLMModel:
             max_retries=0,
             **kwargs
         )
-        
+
+        model_provider = self.PROVIDER_MAP[model_name]
         if response_format is not None:
-            if self.provider != "openai":
+            if not isinstance(model_provider, ChatOpenAI):
                 raise ValueError(
                     f"response_format is only supported for OpenAI models, "
-                    f"but was provided for {self.provider}"
+                    f"but was provided for {model_provider.__name__}"
                 )
             lm = lm.with_structured_output(response_format, strict=True)
 

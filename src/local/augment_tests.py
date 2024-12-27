@@ -18,12 +18,14 @@ async def extend_tests(data: Dict):
         strat = data["input"]["strat"]
         evaluator = data["input"]["evaluator"]
         n_times = data["input"]["n_times"]
+        model = data["model"]
 
     else:
         repo_data = TestModuleData.from_json(data)  
         strat = data["strat"]
         evaluator = data["evaluator"]
         n_times = data["n_times"]
+        model = data["model"]
 
     tm = repo_data.get_tm()
     
@@ -32,6 +34,7 @@ async def extend_tests(data: Dict):
         repo_name=repo_data.repo_config["repo_name"],
         strat=strat,
         evaluator=evaluator,
+        model=model,
         src_repo=src_repo,
         test_input=tm,
         provider="openai",

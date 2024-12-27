@@ -9,7 +9,7 @@ from functools import wraps
 from cowboy_lib.test_modules import TestModule
 from cowboy_lib.repo import SourceRepo
 
-from src.test_gen.augment_test.composer import TestAugmentArgs
+from src.llm import Model
 from src.runner.local.run_test import run_test
 from src.test_modules.iter_tms import iter_test_modules
 from src.config import BT_PROJECT, BRAINTRUST_API_KEY
@@ -57,6 +57,7 @@ def cli():
               help="Strategy for test generation")
 @click.option("--evaluator", type=str, default="ADDITIVE",
               help="Evaluator type")
+@click.option("--model", type=str, default="gpt-4o")
 @click.option("--n-times", type=int, default=2,
               help="Number of times to generate tests")
 @click.option("--braintrust", is_flag=True, default=False,
@@ -69,6 +70,7 @@ async def evaluate(repo_name: str,
                    strat: str, 
                    evaluator: str, 
                    n_times: int, 
+                   model: Model, 
                    braintrust: bool):
     """Evaluate test augmentation on datasets."""
     if list_tms:
@@ -92,7 +94,8 @@ async def evaluate(repo_name: str,
                 {
                     "strat": strat,
                     "evaluator": evaluator,
-                    "n_times": n_times
+                    "n_times": n_times,
+                    "model": model
                 }
             )
 
@@ -104,7 +107,8 @@ async def evaluate(repo_name: str,
                 {
                     "strat": strat,
                     "evaluator": evaluator,
-                    "n_times": n_times
+                    "n_times": n_times,
+                    "model": model
                 }
             )
 
@@ -116,6 +120,7 @@ async def evaluate(repo_name: str,
             dataset,
             strat,
             n_times,
+            model,
             num_tms
         )
     else:
