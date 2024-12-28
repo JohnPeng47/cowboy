@@ -43,22 +43,16 @@ Here is the source code file that the test intends to cover:
 {% endif %}
 
 Extend the unit test class to increase coverage, by appending your new code into the existing code above.
-Here is the structure of your output.
-On first line, write the insertion line that your new code is going to be appended to
-Then on the following lines, generate the code to be inserted. Keep the indentation consistent
-For example, given the following input
+Make sure that the indentation is consistent. Do not generate anything other than the new tests. Here is an example of
+your output response:
 
-0. class FakeClass:
-1.    def fake_method(self):
-2.       pass
+def test_function1(self):
+    assert cond1 == True
 
-The following output was generated
-2
+def test_function2(self):
+    assert cond2 == False
 
-    def test_fake_method(self):
-        pass
-
-Now, generate your response
+Now, generate your response. 
 """
         super().__init__(prompt, gpt4_spec, ["test_code", "file_contents"])
 

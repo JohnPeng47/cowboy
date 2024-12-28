@@ -43,10 +43,7 @@ class AugmentTestStrategy(BaseStrategy):
 
     def parse_llm_res(self, llm_res: str) -> str:
         lines = llm_res.split("\n")
-        print("Lines: ", len(lines))
         llm_out = LLMResAppend(int(lines[0]), lines[1:])
-
-        # print(f"Generated code: \n{llm_out.__repr__()}")
 
         new_test_file = self.test_module.test_file.clone()
         new_test_file.append(

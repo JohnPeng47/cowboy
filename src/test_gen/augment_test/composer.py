@@ -32,12 +32,6 @@ class TestAugmentArgs:
     evaluator: EvaluatorType
     model_name: str
 
-
-MODEL_PROVIDER_MAP = {
-    "openai": "gpt-4o",
-    # "anthropic": ""
-}
-
 class Composer:
     """s
     Used to instantiate different combinations of strategies for generating test cases
@@ -70,10 +64,12 @@ class Composer:
         self.model_name = model
         self.model = LLMModel()
 
-        log.info(f"Test augmentation parameters:")
-        log.info(f"  Strategy: {strat}")
-        log.info(f"  Evaluator: {evaluator}")
-        log.info(f"  Model: {model}")
+        print("Using model: ", self.model_name)
+
+        # log.info(f"Test augmentation parameters:")
+        # log.info(f"  Strategy: {strat}")
+        # log.info(f"  Evaluator: {evaluator}")
+        # log.info(f"  Model: {model}")
 
     def get_strat_name(self) -> str:
         return self.__class__.__name__
