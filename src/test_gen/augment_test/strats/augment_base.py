@@ -13,11 +13,7 @@ logger = getLogger("test_results")
 
 @dataclass
 class LLMResAppend:
-    start: int
     lines: List[str]
-
-    def __post_init__(self):
-        self.start = int(self.start)
 
     def __repr__(self):
         return "\n".join(self.lines)
@@ -43,7 +39,7 @@ class AugmentTestStrategy(BaseStrategy):
 
     def parse_llm_res(self, llm_res: str) -> str:
         lines = llm_res.split("\n")
-        llm_out = LLMResAppend(int(lines[0]), lines[1:])
+        llm_out = LLMResAppend(lines=lines)
 
         new_test_file = self.test_module.test_file.clone()
         new_test_file.append(

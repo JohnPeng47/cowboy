@@ -43,14 +43,30 @@ Here is the source code file that the test intends to cover:
 {% endif %}
 
 Extend the unit test class to increase coverage, by appending your new code into the existing code above.
-Make sure that the indentation is consistent. Do not generate anything other than the new tests. Here is an example of
-your output response:
+Do not generate anything other than the new tests.
+Make sure that if generating Python code, the generated code assumes a zero indent position
+
+Here is a good response (0-indented):
 
 def test_function1(self):
     assert cond1 == True
 
 def test_function2(self):
     assert cond2 == False
+
+This is a bad response (1-indented):
+    def test_function1(self):
+        assert cond1 == True
+
+    def test_function2(self):
+        assert cond2 == False
+
+This is also a bad response (1-indented):
+    def test_function1(self):
+        assert cond1 == True
+
+    def test_function2(self):
+        assert cond2 == False
 
 Now, generate your response. 
 """

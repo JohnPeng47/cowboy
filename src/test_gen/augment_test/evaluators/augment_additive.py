@@ -71,7 +71,8 @@ class AugmentAdditiveEvaluator(Evaluator):
                 # we have to use the updated testfile because module_cov is based on the updated functions 
                 og_testfile = updated_testfile.clone()
                 og_testfile.append(
-                    func.to_code(), class_name=func.scope.name if func.scope else ""
+                    # NEWTODO(BUG1): ideally we should have to lstrip here
+                    func.to_code().lstrip(), class_name=func.scope.name if func.scope else ""
                 )
                 patch_file = PatchFile(
                     path=str(tm.path), patch=og_testfile.to_code()

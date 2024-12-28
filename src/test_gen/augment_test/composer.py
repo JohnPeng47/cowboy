@@ -7,10 +7,9 @@ from .evaluators import (
     EvaluatorType,
     AUGMENT_EVALS,
 )
-
 from cowboy_lib.repo.repository import PatchFile
 from cowboy_lib.repo.source_repo import SourceRepo
-from cowboy_lib.repo.source_file import Function, LintException
+from cowboy_lib.repo.source_file import TestFile, Function, LintException
 from cowboy_lib.coverage import TestCoverage, TestError
 
 from src.test_gen.augment_test.strats import AugmentStratType, AUGMENT_STRATS
@@ -21,9 +20,16 @@ from src.logger import testgen_logger as log
 
 from src.config import LLM_RETRIES
 
+import re
 from dataclasses import dataclass
 from typing import Tuple, List, Callable
 
+
+def extract_python_code(llm_output: str) -> str:
+    try:
+        return re.search(r"```python\n(.*)```", llm_output, re.DOTALL).group(1)
+    except AttributeError:
+        return llm_output
 
 @dataclass
 class TestAugmentArgs:
@@ -177,7 +183,8 @@ class Composer:
                 if func in [f[0] for f in filtered_improved]
             ]:
                 self.test_input.test_file.append(
-                    new_func.to_code(),
+                    # NEWTODO(BUG1): ideally we should have to lstrip here
+                    new_func.to_code().lstrip(),
                     # wrong too, we need to check the
                     class_name=new_func.scope.name if new_func.scope else "",
                 )
@@ -216,7 +223,11 @@ class Composer:
                     prompt,
                     model_name = self.model_name
                 )
-                print("Model response: ", llm_res)
+                # NEWTODO(BUG1): new implementation should create a TestFile here out of the generated
+                # tests so we can be sure that the indents are validated
+
+                # need this for deepseek ..
+                llm_res = extract_python_code(llm_res)                
                 src_file = self.strat.parse_llm_res(llm_res)
             except (SyntaxError, ValueError, LintException):
                 log.info(f"LLM syntax error ... {retries} left")

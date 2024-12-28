@@ -45,7 +45,7 @@ def cli():
 
 @cli.command()
 @click.argument("repo_name", type=str)
-@click.option("--num-tms", type=int, default=0, 
+@click.option("--num-tms", type=int, default=-1, 
               help="Number of records to evaluate (0 for all)")
 @click.option("--selected-tms", 
               type=click.STRING, 
@@ -82,8 +82,10 @@ async def evaluate(repo_name: str,
     
     if selected_tms:
         tm_datalist = read_rows(repo_name, braintrust, selected_tms=selected_tms)
-    elif num_tms:
+    elif num_tms != -1:
         tm_datalist = read_rows(repo_name, braintrust, limit=num_tms)
+    else:
+        raise ValueError("Must provide either selected-tms or num-tms argument. If you want to run on all tests, use --num-tms 0 ")
 
     # convert to braintrust
     if braintrust:
@@ -114,19 +116,18 @@ async def evaluate(repo_name: str,
 
     print("Evaluating TestModules => ", tm_names)
 
+    experiment_name = f"{repo_name}::{model}::{strat}::{evaluator}::{n_times}_n_times"
     if braintrust:
         await eval_dataset_braintrust(
             repo_name, 
             dataset,
-            strat,
-            n_times,
-            model,
-            num_tms
+            experiment_name
         )
     else:
         await eval_dataset(
             repo_name, 
-            dataset
+            dataset,
+            experiment_name
         )
 
 @cli.command()

@@ -29,7 +29,8 @@ def score_improved_tests(output: Dict, expected: int):
     return improved / (improved + no_improve + failed)
 
 async def eval_dataset(repo_name: str,
-                       tm_datalist: List[Dict]):
+                       tm_datalist: List[Dict],
+                       experiment_name: str):
     """
     Evaluate the dataset locally
     """
@@ -38,18 +39,16 @@ async def eval_dataset(repo_name: str,
         await extend_tests(dataset)
 
 async def eval_dataset_braintrust(repo_name: str, 
-                                  dataset: List[Dict],
-                                  strat: str,
-                                  n_times: int,
-                                  num_tms: int):
+                                  tm_datalist: List[Dict],
+                                  experiment_name: str):
     """
     Evaluate the dataset locally and save results to braintrust
     """    
 
     await EvalAsync(
         repo_name,
-        dataset,
+        tm_datalist,
         extend_tests,
         [score_coverage, score_improved_tests],
-        experiment_name = f"{repo_name}::{strat}::{n_times}_n_times::{num_tms}_TMs"
+        experiment_name = experiment_name
     )
