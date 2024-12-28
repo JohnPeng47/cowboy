@@ -55,6 +55,8 @@ async def extend_tests(data: Dict):
         tests=[]
     )
 
+    # NEWTODO: should add a check here that the coverage added is apart of the sourcefiles thats 
+    # covered by this test
     for test, test_cov in improved:
         cov_added += test_cov.total_cov.covered
         test_case = TestCase(

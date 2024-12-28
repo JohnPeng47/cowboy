@@ -62,6 +62,8 @@ def cli():
               help="Number of times to generate tests")
 @click.option("--braintrust", is_flag=True, default=False,
               help="Whether to use Braintrust for evaluation")
+@click.option("--project-name", type=str, default="",
+              help="Braintrust project name")
 @coro
 async def evaluate(repo_name: str,
                    num_tms: int, 
@@ -71,7 +73,8 @@ async def evaluate(repo_name: str,
                    evaluator: str, 
                    n_times: int, 
                    model: Model, 
-                   braintrust: bool):
+                   braintrust: bool,
+                   project_name: str):
     """Evaluate test augmentation on datasets."""
     if list_tms:
         read_rows(repo_name, list_tms=True)
@@ -121,13 +124,14 @@ async def evaluate(repo_name: str,
         await eval_dataset_braintrust(
             repo_name, 
             dataset,
-            experiment_name
+            experiment_name,
+            project_name=project_name
         )
     else:
         await eval_dataset(
             repo_name, 
             dataset,
-            experiment_name
+            experiment_name,
         )
 
 @cli.command()

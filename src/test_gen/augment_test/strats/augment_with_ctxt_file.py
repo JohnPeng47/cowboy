@@ -3,8 +3,6 @@ from .prompt import AugmentTestPromptWithCtxt
 from ..types import CtxtWindowExceeded
 from ..utils import get_current_git_commit
 
-from typing import TYPE_CHECKING, List
-
 from src.logger import testgen_logger as log
 
 

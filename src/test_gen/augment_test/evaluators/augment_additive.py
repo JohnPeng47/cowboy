@@ -91,23 +91,11 @@ class AugmentAdditiveEvaluator(Evaluator):
                 if test_error:
                     log.info(f"[FAILED] Generated Func: ")
                     log.info({func.name})
-                    log.info(f"Patchfile: {og_testfile.to_code()}")
+                    log.info(f"Failed func: {func.to_code().lstrip()}")
+                    # log.info(f"Patchfile: {og_testfile.to_code()}")
 
                     failed_tests.append((func, test_error))
                     continue
-
-                # indv_math = [
-                #     cov for cov in indvtest_cov.get_coverage().cov_list 
-                #     if cov.filename == "src/math_utils.py"
-                # ][0]
-                # mod_math = [
-                #     cov for cov in module_cov.cov_list 
-                #     if cov.filename == "src/math_utils.py"
-                # ][0]
-    
-
-                # log.info(f"IndvTest Coverage: {indv_math}")
-                # log.info(f"Module Coverage: {mod_math}")
 
                 log.info(f"IndvTest Coverage: {indvtest_cov.get_coverage()}")
                 log.info(f"Module Coverage: {module_cov}")
@@ -116,13 +104,15 @@ class AugmentAdditiveEvaluator(Evaluator):
                 if indv_improve.total_cov.covered > 0:
                     log.info(f"[IMPROVE] Generated Func: ")
                     log.info(func.name)
-                    log.info(f"Patchfile: {og_testfile.to_code()}")
+                    log.info(f"Improved func: {func.to_code().lstrip()}")
+                    # log.info(f"Patchfile: {og_testfile.to_code()}")
 
                     improved_tests.append((func, indv_improve))
                 else:
                     log.info(f"[NOIMPROVE] Generated Func: ")
                     log.info({func.name})
-                    log.info(f"Patchfile: {og_testfile.to_code()}")
+                    log.info(f"No improve func: {func.to_code().lstrip()}")
+                    # log.info(f"Patchfile: {og_testfile.to_code()}")
 
                     noimprov_tests.append((func, TestCoverage([])))
 

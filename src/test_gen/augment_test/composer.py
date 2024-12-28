@@ -72,11 +72,6 @@ class Composer:
 
         print("Using model: ", self.model_name)
 
-        # log.info(f"Test augmentation parameters:")
-        # log.info(f"  Strategy: {strat}")
-        # log.info(f"  Evaluator: {evaluator}")
-        # log.info(f"  Model: {model}")
-
     def get_strat_name(self) -> str:
         return self.__class__.__name__
 

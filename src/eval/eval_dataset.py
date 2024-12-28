@@ -40,13 +40,14 @@ async def eval_dataset(repo_name: str,
 
 async def eval_dataset_braintrust(repo_name: str, 
                                   tm_datalist: List[Dict],
-                                  experiment_name: str):
+                                  experiment_name: str,
+                                  project_name: str = ""):
     """
     Evaluate the dataset locally and save results to braintrust
     """    
 
     await EvalAsync(
-        repo_name,
+        repo_name + project_name,
         tm_datalist,
         extend_tests,
         [score_coverage, score_improved_tests],
