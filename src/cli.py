@@ -57,7 +57,7 @@ def cli():
               help="Strategy for test generation")
 @click.option("--evaluator", type=str, default="ADDITIVE",
               help="Evaluator type")
-@click.option("--model", type=str, default="gpt-4o")
+@click.option("--model", type=str, default=Model.GPT4O)
 @click.option("--n-times", type=int, default=2,
               help="Number of times to generate tests")
 @click.option("--braintrust", is_flag=True, default=False,

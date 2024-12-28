@@ -34,11 +34,10 @@ async def extend_tests(data: Dict):
         repo_name=repo_data.repo_config["repo_name"],
         strat=strat,
         evaluator=evaluator,
-        model=model,
         src_repo=src_repo,
         test_input=tm,
-        provider="openai",
         run_args=None,
+        model=model,
         api_key=COWBOY_OPENAI_API_KEY,
         run_test=run_test
     )

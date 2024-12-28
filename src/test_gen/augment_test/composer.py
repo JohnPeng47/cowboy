@@ -67,7 +67,6 @@ class Composer:
         self.evaluator: Evaluator = AUGMENT_EVALS[evaluator](
             self.repo_name, self.src_repo, self.run_args, test_input, self.run_test
         )
-
         self.model_name = model
         self.model = LLMModel()
 
@@ -75,7 +74,6 @@ class Composer:
         log.info(f"  Strategy: {strat}")
         log.info(f"  Evaluator: {evaluator}")
         log.info(f"  Model: {model}")
-        log.info(f"  Number of iterations: {n_times}")
 
     def get_strat_name(self) -> str:
         return self.__class__.__name__
@@ -222,6 +220,7 @@ class Composer:
                     prompt,
                     model_name = self.model_name
                 )
+                print("Model response: ", llm_res)
                 src_file = self.strat.parse_llm_res(llm_res)
             except (SyntaxError, ValueError, LintException):
                 log.info(f"LLM syntax error ... {retries} left")

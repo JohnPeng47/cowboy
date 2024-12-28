@@ -31,6 +31,7 @@ AUGMENT_ROUNDS = 3 if ENV == "release" else 1
 LLM_RETRIES = 3
 AUTO_GEN_SIZE = 7
 MAX_CTXT_SIZE = 10000
+DEEPSEEK_API_KEY = config("DEEPSEEK_API_KEY")
 
 # Run test settings 
 RUN_TEST = "app"

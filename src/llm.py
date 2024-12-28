@@ -5,10 +5,15 @@ import sqlite3
 import hashlib
 import json
 from enum import Enum
+import functools
 
 from langchain_core.messages.base import BaseMessage
 from langchain_openai import ChatOpenAI
 from langchain_anthropic import ChatAnthropic
+
+# for deepseek
+from openai import OpenAI
+from src.config import DEEPSEEK_API_KEY
 
 from pydantic import BaseModel
 import tiktoken
@@ -24,6 +29,27 @@ class Model(str, Enum):
     CLAUDE = "claude-3-5-sonnet-latest"
     DEEPSEEK = "deepseek"
     
+class FakeAIMessage(BaseModel):
+    content: str
+
+class DeepSeekProvider:
+    def __init__(self, model: str, **kwargs):
+        self.model = model
+        self.kwargs = kwargs
+
+        self.client = OpenAI(api_key=DEEPSEEK_API_KEY, base_url="https://api.deepseek.com")
+
+    def invoke(self, prompt: str) -> FakeAIMessage:
+        res = self.client.chat.completions.create(
+            model="deepseek-chat",
+            messages=[
+                {"role": "user", "content": prompt},
+            ],
+            stream=False,
+            **self.kwargs
+        )
+        return FakeAIMessage(content=res.choices[0].message.content)
+
 class LLMModel:
     """
     A flexible wrapper class for LangChain language models that supports arbitrary configuration.
@@ -50,6 +76,7 @@ class LLMModel:
     PROVIDER_MAP = {
         Model.GPT4O: ChatOpenAI,
         Model.CLAUDE: ChatAnthropic,
+        Model.DEEPSEEK: DeepSeekProvider
     }
     
     def __init__(
@@ -161,48 +188,72 @@ class LLMModel:
         )
         self.db_connection.commit()
 
-    def invoke(
-        self,
-        prompt: str,
-        temperature: int = 0,
-        *,
-        model_name: str,
-        response_format: Optional[Type[BaseModel]] = None,
-        timeout: Optional[float] = None,
-        use_cache: bool = True,
-        **kwargs,
-    ) -> Any:
+    def cache_llm_response(func):
+        """Method decorator to handle LLM response caching."""
+        @functools.wraps(func)
+        def wrapper(self, prompt: str, temperature: int = 0, *, model_name: str, 
+                    response_format: Optional[Type[BaseModel]] = None, 
+                    use_cache: bool = True, **kwargs):
+            
+            # Track the call
+            caller_filename, caller_function = self._get_caller_info()
+            self.call_chain.append((caller_filename, caller_function))
+            
+            # Check if caching is enabled for this function
+            cache_enabled = (use_cache and 
+                           caller_function in self.cache_enabled_functions and 
+                           self.cache_enabled_functions[caller_function])
+            
+            if cache_enabled:
+                # Check cache for existing response
+                prompt_hash = self._hash_prompt(prompt)
+                cached_response = self._get_cached_response(caller_function, model_name, prompt_hash)
+                
+                print(f"Retrieving from cache for {caller_function} using {model_name}")
+                
+                if cached_response is not None:
+                    # If response is a Pydantic model, reconstruct it
+                    if response_format is not None:
+                        return response_format.model_validate(cached_response)
+                    return cached_response
+            
+            # Get response from LLM
+            res = func(self, prompt, temperature, model_name=model_name, 
+                      response_format=response_format, **kwargs)
+            
+            # Prepare response for caching
+            if isinstance(res, BaseMessage):
+                cached_response = res.content
+            elif isinstance(res, BaseModel):
+                cached_response = res.model_dump()
+            else:
+                raise Exception(f"Unsupported return type: {type(res)}")
+                
+            # Cache the response if enabled
+            if cache_enabled:
+                print("Caching response: ", cached_response)
+                self._cache_response(caller_function, model_name, prompt_hash, cached_response)
+                
+            return res.content
+            
+        return wrapper
+
+    @cache_llm_response
+    def invoke(self, prompt: str, temperature: int = 0, *, model_name: str, 
+              response_format: Optional[Type[BaseModel]] = None,
+              timeout: Optional[float] = None,
+              use_cache: bool = True,
+              **kwargs) -> Any:
         """Modified invoke method with caching and timeout support."""
-        # Track the call
-        caller_filename, caller_function = self._get_caller_info()
-        self.call_chain.append((caller_filename, caller_function))
-        
-        # Modified cache check to only use use_cache parameter
-        if (use_cache and 
-            caller_function in self.cache_enabled_functions and 
-            self.cache_enabled_functions[caller_function]):
-
-            # Check cache for existing response
-            prompt_hash = self._hash_prompt(prompt)
-            cached_response = self._get_cached_response(caller_function, model_name, prompt_hash)
-            
-            print(f"Retrieving from cache for {caller_function} using {model_name}")
-            
-            if cached_response is not None:
-                # If response is a Pydantic model, reconstruct it
-                if response_format is not None:
-                    return response_format.model_validate(cached_response)
-                return cached_response
-
-        # If no cache hit, proceed with normal invocation
+        # Initialize the model
         lm = self.use_model(
             model_name, 
             temperature=temperature,
             timeout=timeout,
-            max_retries=0,
+            # max_retries=0,
             **kwargs
         )
-
+ 
         model_provider = self.PROVIDER_MAP[model_name]
         if response_format is not None:
             if not isinstance(model_provider, ChatOpenAI):
@@ -216,34 +267,13 @@ class LLMModel:
             res = lm.invoke(prompt)
         except Exception as e:
             if "timeout" in str(e).lower():
-                raise TimeoutError(f"LLM request timed out after {timeout} seconds") from e
+                raise TimeoutError(f"LLM request timed out after{timeout} seconds") from e
             raise
 
-        # Extract content from response and convert to response to string for caching
-        if isinstance(res, BaseMessage):
-            cached_response = res.content
-        elif isinstance(res, BaseModel):
-            cached_response = res.model_dump()
-        else:
-            raise Exception(f"Unsupported return type: {type(res)}")
-
-        # Modified cache storage to only use use_cache parameter
-        if (use_cache and 
-            caller_function in self.cache_enabled_functions and 
-            self.cache_enabled_functions[caller_function]):
-            print("Caching response: ", cached_response)
-            self._cache_response(caller_function, model_name, prompt_hash, cached_response)
-
-        # If original response was a Pydantic model, return it as is
-        if isinstance(res, BaseMessage):
-            final_response = res.content
-        elif isinstance(res, BaseModel):
-            final_response = res
-            
-        return final_response
+        return res
 
     def __del__(self):
-        """Cleanup database connection on object destruction."""
+        """Cleanup database cosnnection on object destruction."""
         if self.db_connection:
             self.db_connection.close()
 

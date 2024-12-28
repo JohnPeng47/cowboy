@@ -10,3 +10,7 @@ print("GPT4O: ", res)
 model = LLMModel()
 res = model.invoke("hello?", model_name=Model.CLAUDE)
 print("GPT4O: ", res)
+
+model = LLMModel()
+res = model.invoke("hello?", model_name=Model.DEEPSEEK)
+print("GPT4O: ", res)
