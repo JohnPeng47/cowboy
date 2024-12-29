@@ -10,7 +10,7 @@ from cowboy_lib.ast import NodeType
 from src.config import TESTCONFIG_ROOT
 from src.database.core import engine
 from src.runner.local.run_test import run_test as run_test_local
-from src.local.models import TestModuleEvalData
+from src.local.models import TestModuleEvalData, RemovedTest
 from src.logger import buildtm_logger as log
 
 class NoTestsToDelete(Exception):
@@ -63,13 +63,27 @@ async def handicap_tm(
     og_contents = tm.test_file.to_code()
 
     log.info(f"Deleting {num_to_del} tests from {tm.name}")
+
     # we take the module coverage before and after the unit tests have been rmeoved
     # to calcuate the difference in coverage
+    removed_tests = []
     modcov_before = await run_test_local(repo_name, None, include_tests=[tm.name], use_cache=False)
     for func in tm.tests[:num_to_del]:
         tm.test_file.delete(
             func.name, node_type=NodeType.Function
         )
+        modcov_notest = await run_test_local(
+            repo_name, None, 
+            include_tests=[tm.name],
+            exclude_tests=[func.name], 
+            use_cache=False
+        )
+        test_cov = modcov_before.get_coverage() - modcov_notest.get_coverage()
+
+        print(f"Test removed coverage: {test_cov}")
+        
+        removed_tests.append(RemovedTest(name=func.name, content=func.to_code(), cov=test_cov))
+        
         total_deleted += 1
 
     # write deleted test_file contents to disk and measure coverage diff
@@ -90,6 +104,7 @@ async def handicap_tm(
         file_content=handicap_testfile,
         repo_config=repo_config,
         expected=diff_cov.total_cov.covered,
+        removed_tests=removed_tests,
         tags=[tm.name]
     )
     row.persist(tm)

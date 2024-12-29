@@ -7,6 +7,7 @@ from src.config import EVAL_DATA_ROOT
 from src.utils import yaml
 from src.test_gen.augment_test.composer import TestAugmentArgs
 from cowboy_lib.test_modules import TestModule
+from cowboy_lib.coverage import TestCoverage
 
 from .db import get_tm, get_repo, persist_tm
 
@@ -48,9 +49,6 @@ class TestResults:
 
     def to_dict(self) -> Dict:
         return asdict(self)
-    
-
-
 
 @dataclass
 class TestModuleData:
@@ -97,6 +95,26 @@ class TestModuleData:
 
         persist_tm(repo_name, tm)
  
+@dataclass
+class RemovedTest:
+    name: str
+    content: str
+    cov: TestCoverage
+
+    def to_json(self) -> Dict:
+        return {
+            "name": self.name,
+            "content": self.content,
+            "cov": self.cov.serialize()
+        }
+    
+    @classmethod
+    def from_json(cls, data) -> "RemovedTest":
+        return cls(
+            name=data["name"],
+            content=data["content"],
+            cov=TestCoverage.deserialize(data["cov"])
+        )
 
 @dataclass
 class TestModuleEvalData(TestModuleData):
@@ -105,6 +123,7 @@ class TestModuleEvalData(TestModuleData):
     """
     expected: int = 0
     tags: List[str] = field(default_factory=list)
+    removed_tests: List[RemovedTest] = field(default_factory=list)
         
     def to_json(self) -> Dict:
         return {
@@ -112,6 +131,7 @@ class TestModuleEvalData(TestModuleData):
             "file_content": self.file_content,
             "repo_config": self.repo_config,
             "expected": self.expected,
+            "removed_tests": [t.to_json() for t in self.removed_tests],
             "tags": self.tags
         }
     
@@ -121,7 +141,7 @@ class TestModuleEvalData(TestModuleData):
                 "name": self.name,
                 "file_content": self.file_content,
                 "repo_config": self.repo_config,
-
+                "removed_tests": [t.to_json() for t in self.removed_tests]
             },
             "expected": self.expected,
             "tags": self.tags
@@ -137,6 +157,7 @@ class TestModuleEvalData(TestModuleData):
             file_content=data["file_content"],
             repo_config=data["repo_config"],
             expected=data["expected"],
+            removed_tests=[RemovedTest.from_json(t) for t in data["removed_tests"]],
             tags=data["tags"]
         )
     

@@ -2,22 +2,97 @@ repo_name: codecovapi-neutered
 git_hash: 3f3d1e86f5e2a51b2f45e5955bb464346a904c59
 tm_name: TestBitbucketServerWebhookHandler
 tests:
-- name: TestBitbucketServerWebhookHandler.test_repo_refs_change_event_branch_deleted
-  coverage_added: 4
+- name: TestBitbucketServerWebhookHandler.test_repo_refs_change_inactive_repo
+  coverage_added: 7
   code: |-
-    def test_repo_refs_change_event_branch_deleted(self):
-            Branch.objects.create(repository=self.repo, name="name-of-branch")
+    def test_repo_refs_change_inactive_repo(self):
+            self.repo.active = False
+            self.repo.save()
             response = self._post_event_data(
                 event=BitbucketServerWebhookEvents.REPO_REFS_CHANGED,
                 data={
-                    "repository": {"id": "673a6070-3421-46c9-9d48-90745f7bfe8e"},
+                    "repository": {"id": self.repo.service_id},
                     "push": {
                         "changes": {
+                            "new": {
+                                "type": "branch",
+                                "name": "name-of-branch",
+                                "target": {},
+                            },
                             "old": {
                                 "type": "branch",
                                 "name": "name-of-branch",
                                 "target": {},
-                            }
+                            },
+                        }
+                    },
+                },
+            )
+            assert response.status_code == status.HTTP_200_OK
+            assert response.data == WebhookHandlerErrorMessages.SKIP_NOT_ACTIVE
+- name: TestBitbucketServerWebhookHandler.test_repo_refs_change_inactive_repo
+  coverage_added: 1
+  code: |-
+    def test_repo_refs_change_inactive_repo(self):
+            self.repo.active = False
+            self.repo.save()
+            response = self._post_event_data(
+                event=BitbucketServerWebhookEvents.REPO_REFS_CHANGED,
+                data={
+                    "repository": {"id": self.repo.service_id},
+                    "push": {
+                        "changes": {
+                            "new": {
+                                "type": "branch",
+                                "name": "name-of-branch",
+                                "target": {},
+                            },
+                            "old": {
+                                "type": "branch",
+                                "name": "name-of-branch",
+                                "target": {},
+                            },
+                        }
+                    },
+                },
+            )
+            assert response.status_code == status.HTTP_200_OK
+            assert response.data == WebhookHandlerErrorMessages.SKIP_NOT_ACTIVE
+- name: TestBitbucketServerWebhookHandler.test_handle_pull_request_state_change_closed
+  coverage_added: 7
+  code: |-
+    def test_handle_pull_request_state_change_closed(self):
+            self.pull.state = PullStates.OPEN
+            self.pull.save()
+            response = self._post_event_data(
+                event=BitbucketServerWebhookEvents.PULL_REQUEST_REJECTED,
+                data={
+                    "pullRequest": {
+                        "id": self.pull.pullid,
+                        "toRef": {"repository": {"id": self.repo.service_id}},
+                    }
+                },
+            )
+            self.pull.refresh_from_db()
+            assert response.status_code == status.HTTP_200_OK
+            assert self.pull.state == PullStates.CLOSED
+- name: TestBitbucketServerWebhookHandler.test_handle_repo_refs_change_deleted_branch
+  coverage_added: 6
+  code: |-
+    def test_handle_repo_refs_change_deleted_branch(self):
+            BranchFactory(repository=self.repo, name="name-of-branch")
+            response = self._post_event_data(
+                event=BitbucketServerWebhookEvents.REPO_REFS_CHANGED,
+                data={
+                    "repository": {"id": self.repo.service_id},
+                    "push": {
+                        "changes": {
+                            "new": None,
+                            "old": {
+                                "type": "branch",
+                                "name": "name-of-branch",
+                                "target": {},
+                            },
                         }
                     },
                 },
@@ -26,3 +101,165 @@ tests:
             assert not Branch.objects.filter(
                 repository=self.repo, name="name-of-branch"
             ).exists()
+- name: TestBitbucketServerWebhookHandler.test_pull_request_merged_event
+  coverage_added: 1
+  code: |-
+    def test_pull_request_merged_event(self):
+            response = self._post_event_data(
+                event=BitbucketServerWebhookEvents.PULL_REQUEST_MERGED,
+                data={
+                    "pullRequest": {
+                        "id": self.pull.pullid,
+                        "toRef": {"repository": {"id": self.repo.service_id}},
+                    }
+                },
+            )
+            self.pull.refresh_from_db()
+            assert response.status_code == status.HTTP_200_OK
+            assert self.pull.state == PullStates.MERGED
+- name: TestBitbucketServerWebhookHandler.test_repo_refs_change_inactive_repo
+  coverage_added: 1
+  code: |-
+    def test_repo_refs_change_inactive_repo(self):
+            self.repo.active = False
+            self.repo.save()
+            response = self._post_event_data(
+                event=BitbucketServerWebhookEvents.REPO_REFS_CHANGED,
+                data={
+                    "repository": {"id": self.repo.service_id},
+                    "push": {
+                        "changes": {
+                            "new": {
+                                "type": "branch",
+                                "name": "name-of-branch",
+                                "target": {},
+                            },
+                            "old": {
+                                "type": "branch",
+                                "name": "name-of-branch",
+                                "target": {},
+                            },
+                        }
+                    },
+                },
+            )
+            assert response.status_code == status.HTTP_200_OK
+            assert response.data == WebhookHandlerErrorMessages.SKIP_NOT_ACTIVE
+- name: TestBitbucketServerWebhookHandler.test_handle_pull_request_state_change_closed
+  coverage_added: 1
+  code: |-
+    def test_handle_pull_request_state_change_closed(self):
+            self.pull.state = PullStates.OPEN
+            self.pull.save()
+            response = self._post_event_data(
+                event=BitbucketServerWebhookEvents.PULL_REQUEST_REJECTED,
+                data={
+                    "pullRequest": {
+                        "id": self.pull.pullid,
+                        "toRef": {"repository": {"id": self.repo.service_id}},
+                    }
+                },
+            )
+            self.pull.refresh_from_db()
+            assert response.status_code == status.HTTP_200_OK
+            assert self.pull.state == PullStates.CLOSED
+- name: TestBitbucketServerWebhookHandler.test_handle_repo_refs_change_deleted_branch
+  coverage_added: 1
+  code: |-
+    def test_handle_repo_refs_change_deleted_branch(self):
+            BranchFactory(repository=self.repo, name="name-of-branch")
+            response = self._post_event_data(
+                event=BitbucketServerWebhookEvents.REPO_REFS_CHANGED,
+                data={
+                    "repository": {"id": self.repo.service_id},
+                    "push": {
+                        "changes": {
+                            "new": None,
+                            "old": {
+                                "type": "branch",
+                                "name": "name-of-branch",
+                                "target": {},
+                            },
+                        }
+                    },
+                },
+            )
+            assert response.status_code == status.HTTP_200_OK
+            assert not Branch.objects.filter(
+                repository=self.repo, name="name-of-branch"
+            ).exists()
+- name: TestBitbucketServerWebhookHandler.test_handle_pull_request_created_event
+  coverage_added: 9
+  code: |-
+    def test_handle_pull_request_created_event(self):
+            with patch("services.task.TaskService.pulls_sync") as mock_pulls_sync:
+                response = self._post_event_data(
+                    event=BitbucketServerWebhookEvents.PULL_REQUEST_CREATED,
+                    data={
+                        "pullRequest": {
+                            "id": self.pull.pullid,
+                            "toRef": {"repository": {"id": self.repo.service_id}},
+                        }
+                    },
+                )
+                mock_pulls_sync.assert_called_once_with(
+                    repoid=self.repo.repoid, pullid=self.pull.pullid
+                )
+                assert response.status_code == status.HTTP_200_OK
+                assert response.data == "Opening pull request in Codecov"
+- name: TestBitbucketServerWebhookHandler.test_handle_repo_refs_change_no_change
+  coverage_added: 4
+  code: |-
+    def test_handle_repo_refs_change_no_change(self):
+            response = self._post_event_data(
+                event=BitbucketServerWebhookEvents.REPO_REFS_CHANGED,
+                data={
+                    "repository": {"id": self.repo.service_id},
+                    "push": {
+                        "changes": {
+                            "new": {
+                                "type": "branch",
+                                "name": "name-of-branch",
+                                "target": {},
+                            },
+                            "old": {
+                                "type": "branch",
+                                "name": "name-of-branch",
+                                "target": {},
+                            },
+                        }
+                    },
+                },
+            )
+            assert response.status_code == status.HTTP_200_OK
+            assert response.data == "Synchronize codecov.yml skipped"
+- name: TestBitbucketServerWebhookHandler.test_handle_pull_request_state_change_deleted
+  coverage_added: 8
+  code: |-
+    def test_handle_pull_request_state_change_deleted(self):
+            self.pull.state = PullStates.OPEN
+            self.pull.save()
+            response = self._post_event_data(
+                event=BitbucketServerWebhookEvents.PULL_REQUEST_DELETED,
+                data={
+                    "pullRequest": {
+                        "id": self.pull.pullid,
+                        "toRef": {"repository": {"id": self.repo.service_id}},
+                    }
+                },
+            )
+            self.pull.refresh_from_db()
+            assert response.status_code == status.HTTP_200_OK
+            assert self.pull.state == PullStates.CLOSED
+- name: TestBitbucketServerWebhookHandler.test_unhandled_event
+  coverage_added: 5
+  code: |-
+    def test_unhandled_event(self):
+            response = self._post_event_data(
+                event="repo:unknown_event",
+                data={
+                    "repository": {"id": self.repo.service_id},
+                },
+            )
+            assert response.status_code == status.HTTP_200_OK
+            assert response.data is None

@@ -3,59 +3,120 @@ git_hash: 3f3d1e86f5e2a51b2f45e5955bb464346a904c59
 tm_name: TestGitlabEnterpriseWebhookHandler
 tests:
 - name: TestGitlabEnterpriseWebhookHandler.test_handle_push_event
-  coverage_added: 9
+  coverage_added: 8
   code: |-
     def test_handle_push_event(self):
-            repo = RepositoryFactory(author=OwnerFactory(service="gitlab_enterprise"))
-            response = self._post_event_data(
-                event=GitLabWebhookEvents.PUSH, data={"project_id": repo.service_id}
+            repo = RepositoryFactory(
+                author=OwnerFactory(service="gitlab_enterprise"),
+                service_id=uuid.uuid4(),
+                active=True,
+            )
+            response = self.client.post(
+                reverse("gitlab_enterprise-webhook"),
+                **{
+                    GitLabHTTPHeaders.EVENT: GitLabWebhookEvents.PUSH,
+                    GitLabHTTPHeaders.TOKEN: "",
+                },
+                data={
+                    "project_id": repo.service_id,
+                },
+                format="json",
             )
             assert response.status_code == status.HTTP_200_OK
             assert response.data == "No yaml cached yet."
-- name: TestGitlabEnterpriseWebhookHandler.test_handle_job_event_pending
-  coverage_added: 9
+- name: TestGitlabEnterpriseWebhookHandler.test_handle_job_event_skip_pending
+  coverage_added: 8
   code: |-
-    def test_handle_job_event_pending(self):
-            repo = RepositoryFactory(author=OwnerFactory(service="gitlab_enterprise"))
-            response = self._post_event_data(
-                event=GitLabWebhookEvents.JOB,
-                data={"project_id": repo.service_id, "build_status": "pending"},
+    def test_handle_job_event_skip_pending(self):
+            repo = RepositoryFactory(
+                author=OwnerFactory(service="gitlab_enterprise"),
+                service_id=uuid.uuid4(),
+                active=True,
+            )
+            response = self.client.post(
+                reverse("gitlab_enterprise-webhook"),
+                **{
+                    GitLabHTTPHeaders.EVENT: GitLabWebhookEvents.JOB,
+                    GitLabHTTPHeaders.TOKEN: "",
+                },
+                data={
+                    "project_id": repo.service_id,
+                    "build_status": "pending",
+                },
+                format="json",
             )
             assert response.status_code == status.HTTP_200_OK
             assert response.data == WebhookHandlerErrorMessages.SKIP_PENDING_STATUSES
+- name: TestGitlabEnterpriseWebhookHandler.test_handle_job_event_skip_processing
+  coverage_added: 9
+  code: |-
+    def test_handle_job_event_skip_processing(self):
+            repo = RepositoryFactory(
+                author=OwnerFactory(service="gitlab_enterprise"),
+                service_id=uuid.uuid4(),
+                active=False,
+            )
+            response = self.client.post(
+                reverse("gitlab_enterprise-webhook"),
+                **{
+                    GitLabHTTPHeaders.EVENT: GitLabWebhookEvents.JOB,
+                    GitLabHTTPHeaders.TOKEN: "",
+                },
+                data={
+                    "project_id": repo.service_id,
+                    "build_status": "success",
+                    "sha": "dummy_sha",
+                },
+                format="json",
+            )
+            assert response.status_code == status.HTTP_200_OK
+            assert response.data == WebhookHandlerErrorMessages.SKIP_PROCESSING
 - name: TestGitlabEnterpriseWebhookHandler.test_handle_merge_request_event_open
   coverage_added: 31
   code: |-
     def test_handle_merge_request_event_open(self):
-            repo = RepositoryFactory(author=OwnerFactory(service="gitlab_enterprise"))
-            response = self._post_event_data(
-                event=GitLabWebhookEvents.MERGE_REQUEST,
-                data={
-                    "project_id": repo.service_id,
-                    "object_attributes": {"action": "open", "iid": 1},
+            repo = RepositoryFactory(
+                author=OwnerFactory(service="gitlab_enterprise"),
+                service_id=uuid.uuid4(),
+                active=True,
+            )
+            pull_data = {
+                "object_attributes": {
+                    "action": "open",
+                    "iid": 1,
+                }
+            }
+            response = self.client.post(
+                reverse("gitlab_enterprise-webhook"),
+                **{
+                    GitLabHTTPHeaders.EVENT: GitLabWebhookEvents.MERGE_REQUEST,
+                    GitLabHTTPHeaders.TOKEN: "",
                 },
+                data={"project_id": repo.service_id, **pull_data},
+                format="json",
             )
             assert response.status_code == status.HTTP_200_OK
             assert response.data == "Opening pull request in Codecov"
-- name: TestGitlabEnterpriseWebhookHandler.test_handle_system_event_project_destroy
-  coverage_added: 17
+- name: TestGitlabEnterpriseWebhookHandler.test_system_hook_event_project_destroy
+  coverage_added: 16
   code: |-
-    def test_handle_system_event_project_destroy(self):
-            repo = RepositoryFactory(author=OwnerFactory(service="gitlab_enterprise"))
-            response = self._post_event_data(
-                event=GitLabWebhookEvents.SYSTEM,
-                data={"project_id": repo.service_id, "event_name": "project_destroy"},
+    def test_system_hook_event_project_destroy(self):
+            repo = RepositoryFactory(
+                author=OwnerFactory(service="gitlab_enterprise"),
+                service_id=uuid.uuid4(),
+                active=True,
+            )
+            response = self.client.post(
+                reverse("gitlab_enterprise-webhook"),
+                **{
+                    GitLabHTTPHeaders.EVENT: GitLabWebhookEvents.SYSTEM,
+                    GitLabHTTPHeaders.TOKEN: "",
+                },
+                data={
+                    "project_id": repo.service_id,
+                    "event_name": "project_destroy",
+                },
+                format="json",
             )
             assert response.status_code == status.HTTP_200_OK
             assert response.data == "Repository deleted"
-- name: TestGitlabEnterpriseWebhookHandler.test_handle_system_event_project_rename
-  coverage_added: 25
-  code: |-
-    def test_handle_system_event_project_rename(self):
-            repo = RepositoryFactory(author=OwnerFactory(service="gitlab_enterprise"))
-            response = self._post_event_data(
-                event=GitLabWebhookEvents.SYSTEM,
-                data={"project_id": repo.service_id, "event_name": "project_rename"},
-            )
-            assert response.status_code == status.HTTP_200_OK
-            assert response.data == "Sync initiated"

@@ -9,7 +9,7 @@ from src.utils import (
 )
 
 from .db import get_tm, get_repo
-from .models import TestCase, TestResults, TestModuleData
+from .models import TestResults, TestModuleData, TestCase
 
 class TestApplyError(Exception):
     pass
@@ -33,9 +33,10 @@ def print_test_summary(fp: Path,
     
     summary += cyan_text(f"[{test_results.tm_name}]\n")
     for test in test_results.tests:
+        total_coverage += test.coverage_added
+
         test_name = test.name if len(test.name.split(".")) == 1 else test.name.split(".")[1]
         test_summary += f"{test_name} ---> coverage added: {green_text(test.coverage_added)}\n"
-        total_coverage += test.coverage_added
 
     summary += dim_text(f"PatchFile: {fp}\n")
     summary += dim_text(f"TestFile: {tm.test_file.path}\n")

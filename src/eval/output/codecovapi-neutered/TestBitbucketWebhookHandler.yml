@@ -2,29 +2,115 @@ repo_name: codecovapi-neutered
 git_hash: 3f3d1e86f5e2a51b2f45e5955bb464346a904c59
 tm_name: TestBitbucketWebhookHandler
 tests:
-- name: TestBitbucketWebhookHandler.test_pull_request_state_change_event_fulfilled
-  coverage_added: 11
+- name: TestBitbucketWebhookHandler.test_repo_push_event_without_branch_deletion
+  coverage_added: 10
   code: |-
-    def test_pull_request_state_change_event_fulfilled(self):
-            self.pull.state = PullStates.OPEN
-            self.pull.save()
+    def test_repo_push_event_without_branch_deletion(self):
             response = self._post_event_data(
-                event=BitbucketWebhookEvents.PULL_REQUEST_FULFILLED,
+                event=BitbucketWebhookEvents.REPO_PUSH,
                 data={
                     "repository": {"uuid": "{673a6070-3421-46c9-9d48-90745f7bfe8e}"},
-                    "pullrequest": {"id": self.pull.pullid},
+                    "push": {
+                        "changes": [
+                            {
+                                "old": {"type": "branch", "name": "master"},
+                                "new": {"name": "master"},
+                            }
+                        ]
+                    },
                 },
             )
 
             assert response.status_code == status.HTTP_200_OK
-            self.pull.refresh_from_db()
-            assert self.pull.state == PullStates.MERGED
-- name: TestBitbucketWebhookHandler.test_repo_push_event_branch_deleted
-  coverage_added: 14
+            assert response.data == "Synchronize codecov.yml skipped"
+- name: TestBitbucketWebhookHandler.test_repo_commit_status_change_skip_codecov_status
+  coverage_added: 5
   code: |-
-    def test_repo_push_event_branch_deleted(self):
-            branch_name = "test-branch"
-            BranchFactory(name=branch_name, repository=self.repo)
+    def test_repo_commit_status_change_skip_codecov_status(self):
+            response = self._post_event_data(
+                event=BitbucketWebhookEvents.REPO_COMMIT_STATUS_CREATED,
+                data={
+                    "repository": {"uuid": "{673a6070-3421-46c9-9d48-90745f7bfe8e}"},
+                    "commit_status": {
+                        "key": "codecov/coverage",
+                        "state": "SUCCESSFUL",
+                        "links": {
+                            "commit": {
+                                "href": "http://api.bitbucket.org/2.0/repositories/tk/test/commit/commitid"
+                            }
+                        },
+                    },
+                },
+            )
+
+            assert response.status_code == status.HTTP_200_OK
+            assert response.data == WebhookHandlerErrorMessages.SKIP_CODECOV_STATUS
+- name: TestBitbucketWebhookHandler.test_repo_push_event_without_branch_deletion
+  coverage_added: 1
+  code: |-
+    def test_repo_push_event_without_branch_deletion(self):
+            response = self._post_event_data(
+                event=BitbucketWebhookEvents.REPO_PUSH,
+                data={
+                    "repository": {"uuid": "{673a6070-3421-46c9-9d48-90745f7bfe8e}"},
+                    "push": {
+                        "changes": [
+                            {
+                                "old": {"type": "branch", "name": "master"},
+                                "new": {"name": "master"},
+                            }
+                        ]
+                    },
+                },
+            )
+
+            assert response.status_code == status.HTTP_200_OK
+            assert response.data == "Synchronize codecov.yml skipped"
+- name: TestBitbucketWebhookHandler.test_repo_commit_status_change_skip_codecov_status
+  coverage_added: 1
+  code: |-
+    def test_repo_commit_status_change_skip_codecov_status(self):
+            response = self._post_event_data(
+                event=BitbucketWebhookEvents.REPO_COMMIT_STATUS_CREATED,
+                data={
+                    "repository": {"uuid": "{673a6070-3421-46c9-9d48-90745f7bfe8e}"},
+                    "commit_status": {
+                        "key": "codecov/coverage",
+                        "state": "SUCCESSFUL",
+                        "links": {
+                            "commit": {
+                                "href": "http://api.bitbucket.org/2.0/repositories/tk/test/commit/commitid"
+                            }
+                        },
+                    },
+                },
+            )
+
+            assert response.status_code == status.HTTP_200_OK
+            assert response.data == WebhookHandlerErrorMessages.SKIP_CODECOV_STATUS
+- name: TestBitbucketWebhookHandler.test_pull_request_created_event
+  coverage_added: 9
+  code: |-
+    def test_pull_request_created_event(self):
+            with patch("services.task.TaskService.pulls_sync") as pulls_sync_mock:
+                response = self._post_event_data(
+                    event=BitbucketWebhookEvents.PULL_REQUEST_CREATED,
+                    data={
+                        "repository": {"uuid": "{673a6070-3421-46c9-9d48-90745f7bfe8e}"},
+                        "pullrequest": {"id": self.pull.pullid},
+                    },
+                )
+                assert response.status_code == status.HTTP_200_OK
+                assert response.data == "Opening pull request in Codecov"
+                pulls_sync_mock.assert_called_once_with(
+                    repoid=self.repo.repoid, pullid=self.pull.pullid
+                )
+- name: TestBitbucketWebhookHandler.test_repo_push_event_with_branch_deletion
+  coverage_added: 9
+  code: |-
+    def test_repo_push_event_with_branch_deletion(self):
+            branch_name = "feature-branch"
+            BranchFactory(repository=self.repo, name=branch_name)
             response = self._post_event_data(
                 event=BitbucketWebhookEvents.REPO_PUSH,
                 data={
@@ -44,17 +130,189 @@ tests:
             assert not Branch.objects.filter(
                 repository=self.repo, name=branch_name
             ).exists()
-- name: TestBitbucketWebhookHandler.test_repo_push_event_yml_synchronization_skipped
-  coverage_added: 10
+- name: TestBitbucketWebhookHandler.test_repo_not_active
+  coverage_added: 7
   code: |-
-    def test_repo_push_event_yml_synchronization_skipped(self):
+    def test_repo_not_active(self):
+            self.repo.active = False
+            self.repo.save()
             response = self._post_event_data(
                 event=BitbucketWebhookEvents.REPO_PUSH,
                 data={
                     "repository": {"uuid": "{673a6070-3421-46c9-9d48-90745f7bfe8e}"},
-                    "push": {"changes": [{"new": {"type": "branch", "name": "main"}}]},
+                    "push": {"changes": []},
+                },
+            )
+
+            assert response.status_code == status.HTTP_200_OK
+            assert response.data == WebhookHandlerErrorMessages.SKIP_NOT_ACTIVE
+- name: TestBitbucketWebhookHandler.test_pull_request_fulfilled_event
+  coverage_added: 1
+  code: |-
+    def test_pull_request_fulfilled_event(self):
+            response = self._post_event_data(
+                event=BitbucketWebhookEvents.PULL_REQUEST_FULFILLED,
+                data={
+                    "repository": {"uuid": "{673a6070-3421-46c9-9d48-90745f7bfe8e}"},
+                    "pullrequest": {"id": self.pull.pullid},
+                },
+            )
+
+            assert response.status_code == status.HTTP_200_OK
+            self.pull.refresh_from_db()
+            assert self.pull.state == PullStates.MERGED
+- name: TestBitbucketWebhookHandler.test_repo_push_event_without_branch_deletion
+  coverage_added: 1
+  code: |-
+    def test_repo_push_event_without_branch_deletion(self):
+            response = self._post_event_data(
+                event=BitbucketWebhookEvents.REPO_PUSH,
+                data={
+                    "repository": {"uuid": "{673a6070-3421-46c9-9d48-90745f7bfe8e}"},
+                    "push": {
+                        "changes": [
+                            {
+                                "old": {"type": "branch", "name": "master"},
+                                "new": {"name": "master"},
+                            }
+                        ]
+                    },
                 },
             )
 
             assert response.status_code == status.HTTP_200_OK
             assert response.data == "Synchronize codecov.yml skipped"
+- name: TestBitbucketWebhookHandler.test_repo_commit_status_change_skip_codecov_status
+  coverage_added: 1
+  code: |-
+    def test_repo_commit_status_change_skip_codecov_status(self):
+            response = self._post_event_data(
+                event=BitbucketWebhookEvents.REPO_COMMIT_STATUS_CREATED,
+                data={
+                    "repository": {"uuid": "{673a6070-3421-46c9-9d48-90745f7bfe8e}"},
+                    "commit_status": {
+                        "key": "codecov/coverage",
+                        "state": "SUCCESSFUL",
+                        "links": {
+                            "commit": {
+                                "href": "http://api.bitbucket.org/2.0/repositories/tk/test/commit/commitid"
+                            }
+                        },
+                    },
+                },
+            )
+
+            assert response.status_code == status.HTTP_200_OK
+            assert response.data == WebhookHandlerErrorMessages.SKIP_CODECOV_STATUS
+- name: TestBitbucketWebhookHandler.test_pull_request_created_event
+  coverage_added: 1
+  code: |-
+    def test_pull_request_created_event(self):
+            with patch("services.task.TaskService.pulls_sync") as pulls_sync_mock:
+                response = self._post_event_data(
+                    event=BitbucketWebhookEvents.PULL_REQUEST_CREATED,
+                    data={
+                        "repository": {"uuid": "{673a6070-3421-46c9-9d48-90745f7bfe8e}"},
+                        "pullrequest": {"id": self.pull.pullid},
+                    },
+                )
+                assert response.status_code == status.HTTP_200_OK
+                assert response.data == "Opening pull request in Codecov"
+                pulls_sync_mock.assert_called_once_with(
+                    repoid=self.repo.repoid, pullid=self.pull.pullid
+                )
+- name: TestBitbucketWebhookHandler.test_repo_push_event_with_branch_deletion
+  coverage_added: 1
+  code: |-
+    def test_repo_push_event_with_branch_deletion(self):
+            branch_name = "feature-branch"
+            BranchFactory(repository=self.repo, name=branch_name)
+            response = self._post_event_data(
+                event=BitbucketWebhookEvents.REPO_PUSH,
+                data={
+                    "repository": {"uuid": "{673a6070-3421-46c9-9d48-90745f7bfe8e}"},
+                    "push": {
+                        "changes": [
+                            {
+                                "old": {"type": "branch", "name": branch_name},
+                                "new": None,
+                            }
+                        ]
+                    },
+                },
+            )
+
+            assert response.status_code == status.HTTP_200_OK
+            assert not Branch.objects.filter(
+                repository=self.repo, name=branch_name
+            ).exists()
+- name: TestBitbucketWebhookHandler.test_repo_not_active
+  coverage_added: 1
+  code: |-
+    def test_repo_not_active(self):
+            self.repo.active = False
+            self.repo.save()
+            response = self._post_event_data(
+                event=BitbucketWebhookEvents.REPO_PUSH,
+                data={
+                    "repository": {"uuid": "{673a6070-3421-46c9-9d48-90745f7bfe8e}"},
+                    "push": {"changes": []},
+                },
+            )
+
+            assert response.status_code == status.HTTP_200_OK
+            assert response.data == WebhookHandlerErrorMessages.SKIP_NOT_ACTIVE
+- name: TestBitbucketWebhookHandler.test_unknown_event
+  coverage_added: 5
+  code: |-
+    def test_unknown_event(self):
+            response = self._post_event_data(
+                event="UNKNOWN_EVENT",
+                data={"repository": {"uuid": "{673a6070-3421-46c9-9d48-90745f7bfe8e}"}},
+            )
+
+            assert response.status_code == status.HTTP_200_OK
+            assert response.data is None
+- name: TestBitbucketWebhookHandler.test_pull_request_rejected_event
+  coverage_added: 7
+  code: |-
+    def test_pull_request_rejected_event(self):
+            self.pull.state = PullStates.OPEN
+            self.pull.save()
+            response = self._post_event_data(
+                event=BitbucketWebhookEvents.PULL_REQUEST_REJECTED,
+                data={
+                    "repository": {"uuid": "{673a6070-3421-46c9-9d48-90745f7bfe8e}"},
+                    "pullrequest": {"id": self.pull.pullid},
+                },
+            )
+
+            assert response.status_code == status.HTTP_200_OK
+            self.pull.refresh_from_db()
+            assert self.pull.state == PullStates.CLOSED
+- name: TestBitbucketWebhookHandler.test_repo_commit_status_update_with_failed_status
+  coverage_added: 23
+  code: |-
+    def test_repo_commit_status_update_with_failed_status(self):
+            commitid = "9fec847784abb10b2fa567ee63b85bd238955d0e"
+            CommitFactory(
+                commitid=commitid, repository=self.repo, state=Commit.CommitStates.COMPLETE
+            )
+            response = self._post_event_data(
+                event=BitbucketWebhookEvents.REPO_COMMIT_STATUS_UPDATED,
+                data={
+                    "repository": {"uuid": "{673a6070-3421-46c9-9d48-90745f7bfe8e}"},
+                    "commit_status": {
+                        "key": "some_key",
+                        "state": "FAILED",
+                        "links": {
+                            "commit": {
+                                "href": f"http://api.bitbucket.org/2.0/repositories/tk/test/commit/{commitid}"
+                            }
+                        },
+                    },
+                },
+            )
+
+            assert response.status_code == status.HTTP_200_OK
+            assert response.data == "Notify queued"
