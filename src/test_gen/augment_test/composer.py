@@ -143,7 +143,7 @@ class Composer:
 
         updated_patchfile = None
         for i in range(n_times):
-            src_file = await self._llm_generate_with_retry(prompt)
+            src_file = await self._llm_generate_with_retry(prompt, i)
 
             # need to update the contents of tesst_file to account for new tests that
             # have been generated
@@ -204,7 +204,7 @@ class Composer:
         elif isinstance(self.evaluator, AugmentParallelEvaluator):
             return await self.gen_test_parallel(n_times)
 
-    async def _llm_generate_with_retry(self, prompt: str) -> str:
+    async def _llm_generate_with_retry(self, prompt: str, i) -> str:
         """
         Retry LLM generation with specified number of retries.
         Returns the parsed source file or raises CowboyRunTimeException.
@@ -216,7 +216,9 @@ class Composer:
             try:
                 llm_res = self.model.invoke(
                     prompt,
-                    model_name = self.model_name
+                    model_name = self.model_name,
+                    use_cache=True,
+                    key=i
                 )
                 # NEWTODO(BUG1): new implementation should create a TestFile here out of the generated
                 # tests so we can be sure that the indents are validated

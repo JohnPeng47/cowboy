@@ -91,10 +91,11 @@ class LLMModel:
             provider: The name of the model provider (e.g., "openai", "anthropic")
         """
         self.config = self._read_config(configpath)
-        
+
         # Initialize cache-related attributes
         self.cache_enabled_functions = self._get_cache_enabled_functions()
         print("Enabled functions: ", "\n".join([f for f, enabled in self.cache_enabled_functions.items() if enabled]))
+
         self.db_connection = None
         
         # Initialize cache database
@@ -159,9 +160,21 @@ class LLMModel:
         """)
         self.db_connection.commit()
 
-    def _hash_prompt(self, prompt: str) -> str:
-        """Create a consistent hash of the prompt."""
-        return hashlib.sha256(prompt.encode()).hexdigest()
+    def _hash_prompt(self, prompt: str, model: str, key: int = 0) -> str:
+        """Create a consistent hash of the prompt with the key used for iterative prompts."""
+        return hashlib.sha256(prompt.encode() + model.encode() + str(key).encode()).hexdigest()
+
+    def _delete_hash(self, function_name: str, model_name: str, prompt_hash: str) -> None:
+        """Delete a specific cache entry by its hash."""
+        if not self.db_connection:
+            return
+            
+        cursor = self.db_connection.cursor()
+        cursor.execute(
+            "DELETE FROM llm_cache WHERE function_name = ? AND model_name = ? AND prompt_hash = ?",
+            (function_name, model_name, prompt_hash)
+        )
+        self.db_connection.commit()
 
     def _get_cached_response(self, function_name: str, model_name: str, prompt_hash: str) -> Optional[str]:
         """Retrieve cached response if it exists."""
@@ -180,7 +193,7 @@ class LLMModel:
         """Store response in cache."""
         if not self.db_connection:
             return
-            
+                    
         cursor = self.db_connection.cursor()
         cursor.execute(
             "INSERT OR REPLACE INTO llm_cache (function_name, model_name, prompt_hash, response) VALUES (?, ?, ?, ?)",
@@ -191,30 +204,41 @@ class LLMModel:
     def cache_llm_response(func):
         """Method decorator to handle LLM response caching."""
         @functools.wraps(func)
-        def wrapper(self, prompt: str, temperature: int = 0, *, model_name: str, 
+        def wrapper(self, 
+                    prompt: str, 
+                    temperature: int = 0, 
+                    *, 
+                    model_name: str, 
                     response_format: Optional[Type[BaseModel]] = None, 
-                    use_cache: bool = True, **kwargs):
+                    use_cache: bool = True, 
+                    delete_cache: bool = False,
+                    key: int = 0,
+                    **kwargs):
             
             # Track the call
             caller_filename, caller_function = self._get_caller_info()
             self.call_chain.append((caller_filename, caller_function))
             
             # Check if caching is enabled for this function
-            cache_enabled = (use_cache and 
-                           caller_function in self.cache_enabled_functions and 
-                           self.cache_enabled_functions[caller_function])
+            # cache_enabled = (use_cache and 
+            #                caller_function in self.cache_enabled_functions and 
+            #                self.cache_enabled_functions[caller_function])
+            cache_enabled = use_cache
             
-            if cache_enabled:
+            if delete_cache:
+                self._delete_hash(caller_function, model_name, self._hash_prompt(prompt, model_name, key=key))
+                
+            elif not delete_cache and cache_enabled:
                 # Check cache for existing response
-                prompt_hash = self._hash_prompt(prompt)
+                prompt_hash = self._hash_prompt(prompt, model_name, key=key)
                 cached_response = self._get_cached_response(caller_function, model_name, prompt_hash)
-                
-                print(f"Retrieving from cache for {caller_function} using {model_name}")
-                
+                                
                 if cached_response is not None:
                     # If response is a Pydantic model, reconstruct it
                     if response_format is not None:
                         return response_format.model_validate(cached_response)
+                    
+                    print("Cache hit: ", model_name, prompt[:20], key, prompt_hash[:4])
                     return cached_response
             
             # Get response from LLM
@@ -231,7 +255,7 @@ class LLMModel:
                 
             # Cache the response if enabled
             if cache_enabled:
-                print("Caching response: ", cached_response)
+                print("Caching response: ", model_name, prompt[:20], key, prompt_hash[:4])
                 self._cache_response(caller_function, model_name, prompt_hash, cached_response)
                 
             return res.content
@@ -239,11 +263,15 @@ class LLMModel:
         return wrapper
 
     @cache_llm_response
-    def invoke(self, prompt: str, temperature: int = 0, *, model_name: str, 
-              response_format: Optional[Type[BaseModel]] = None,
-              timeout: Optional[float] = None,
-              use_cache: bool = True,
-              **kwargs) -> Any:
+    def invoke(self, 
+               prompt: str, 
+               temperature: int = 0, 
+               *, 
+               model_name: str, 
+               response_format: Optional[Type[BaseModel]] = None,
+               timeout: Optional[float] = None,
+               use_cache: bool = True,
+               **kwargs) -> Any:
         """Modified invoke method with caching and timeout support."""
         # Initialize the model
         lm = self.use_model(
