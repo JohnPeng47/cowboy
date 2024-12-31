@@ -167,7 +167,7 @@ def read_rows(repo_name: str,
               selected_tms: List[str] = [],
               limit=0) -> List["TestModuleEvalData"]:
     """
-    Read TestModuleRows from disk
+    Read TestModuleRows from disks
     """
     repo_dir = EVAL_DATA_ROOT / repo_name
     if not repo_dir.exists():
@@ -177,7 +177,19 @@ def read_rows(repo_name: str,
         print(f"Reading {repo_name} dataset from {repo_dir}")
         print("Available datasets:")
         for file_path in repo_dir.glob("*.json"):
-            print(file_path.stem)
+            with open(file_path) as f:
+                data = TestModuleEvalData.from_json(json.load(f))
+                repo_path = Path(data.repo_config["source_folder"])
+                for test in data.removed_tests:
+                    print(f"{test.content}")
+                # for t in data.removed_tests:
+                #     t.cov.read_line_coverage(repo_path)
+                    
+                #     print(f"{t.name}")
+                #     for cov in t.cov.cov_list:
+                #         covered_lines = cov.print_lines()
+                #         print(f"{covered_lines}")
+
         return []
 
     rows = []

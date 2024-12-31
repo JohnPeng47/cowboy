@@ -26,6 +26,7 @@ from src.local.apply import (
 )
 from src.utils import confirm_action
 
+
 def parse_list(ctx, param, value):
     if not value:
         return []
@@ -77,7 +78,7 @@ async def evaluate(repo_name: str,
                    project_name: str):
     """Evaluate test augmentation on datasets."""
     if list_tms:
-        read_rows(repo_name, list_tms=True)
+        read_rows(repo_name, braintrust, list_tms=True)
         sys.exit()
         
     if selected_tms and num_tms:
@@ -142,9 +143,20 @@ async def evaluate(repo_name: str,
               help="Number of test functions to delete per module")
 @click.option("--num-tms", type=int, default=5,
               help="Maximum number of test modules to process")
+@click.option("--selected-tms", 
+              type=click.STRING, 
+              callback=parse_list,
+              default="",
+              help="Comma-separated list of TestModules to evaluate (e.g. 'module1,module2')")
+@click.option("--skip", type=int, default=1,
+              help="Num to skip while iterating")
 @coro
 async def setup_eval_repo(repo_name: str, 
-                              keep: int, delete: int, num_tms: int):
+                              keep: int, 
+                              delete: int,
+                              num_tms: int,
+                              skip: int,
+                              selected_tms: List[str]):
     """Neuter a repository by removing test functions."""
     repo = get_repo(repo_name)
     base_cov = await run_test(repo.repo_name, None)
@@ -160,9 +172,15 @@ async def setup_eval_repo(repo_name: str,
 
     click.echo(f"Creating {num_tms}/{len(test_modules)} datasets")
     click.echo(f"Set \"--max-tm\" to change number of datasets to create")
+
+    if selected_tms:
+        filtered_tms = [tm for tm in test_modules if tm.name in selected_tms]
+    else:
+        filtered_tms = test_modules[::skip]
+        filtered_tms = filtered_tms[1:num_tms]
     
     handicapped = []
-    for tm in test_modules[:num_tms]:
+    for tm in filtered_tms:
         # try:
         #     tm = get_tm(repo_name, tm.name)
         # except Exception as e:
@@ -191,8 +209,18 @@ async def setup_eval_repo(repo_name: str,
 @click.argument("repo_name", type=str)
 @click.option("--num-tms", type=int, default=5,
               help="Maximum number of test modules to process")
+@click.option("--skip", type=int, default=1,
+              help="Num to skip while iterating")
+@click.option("--selected-tms", 
+              type=click.STRING, 
+              callback=parse_list,
+              default="",
+              help="Comma-separated list of TestModules to evaluate (e.g. 'module1,module2')")
 @coro
-async def setup_repo(repo_name: str, num_tms: int) -> Tuple[List[TestModule], List[TestModuleData]]:
+async def setup_repo(repo_name: str, 
+                     num_tms: int,
+                     skip: int,
+                     selected_tms: List[str]) -> Tuple[List[TestModule], List[TestModuleData]]:
     """Setup a repo for local test augmentation"""
     repo = get_repo(repo_name, ret_json=True)
     base_cov = await run_test(repo["repo_name"], None, use_cache=True, delete_last=True)
@@ -203,8 +231,14 @@ async def setup_repo(repo_name: str, num_tms: int) -> Tuple[List[TestModule], Li
 
     click.echo(f"Creating {num_tms}/{len(test_modules)} datasets")
     click.echo(f"Set \"--max-tm\" to change number of datasets to create")
+
+    if selected_tms:
+        filtered_tms = [tm for tm in test_modules if tm.name in selected_tms]
+    else:
+        filtered_tms = test_modules[::skip]
+        filtered_tms = filtered_tms[1:num_tms]
     
-    for tm in test_modules[:num_tms]:
+    for tm in filtered_tms:
         chunks = await enrich_tm_with_tgt_coverage(repo["repo_name"], src_repo, base_cov, tm)
         tm.chunks = chunks
 

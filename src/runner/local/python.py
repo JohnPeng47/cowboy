@@ -1,7 +1,8 @@
-from cowboy_lib.ast import Function
+from cowboy_lib.ast import Function, Class, NodeType
 from cowboy_lib.repo.repository import PatchFile, PatchFileContext, GitRepo
 from cowboy_lib.coverage import CoverageResult
 from cowboy_lib.api.runner.shared import RunTestTaskArgs, FunctionArg
+from cowboy_lib.test_modules import TestModule
 
 from src.logger import testgen_logger, buildtm_logger, MultiLogger
 
@@ -259,7 +260,7 @@ class PytestDiffRunner:
         self.verify_clone_dirs(repo_paths)
 
     def _get_exclude_tests_arg_str(
-        self, excluded_tests: List[Tuple[FunctionArg, Path]], cloned_path: Path
+        self, excluded_tests: List[Tuple[Function, Path]], cloned_path: Path
     ):
         """
         Convert the excluded tests into Pytest deselect args
@@ -274,18 +275,11 @@ class PytestDiffRunner:
 
         return "--deselect=" + " --deselect=".join(tranf_paths)
 
-    def _get_include_tests_arg_str(self, include_tests: []):
-        if not include_tests:
-            return ""
-
-        arg_str = ""
-        AND = " and"
-        for test in include_tests:
-            arg_str += f"{test}{AND}"
-
-        arg_str = arg_str[: -len(AND)]
-        # return "-k " + '"' + arg_str + '"'
-        return "-k " + arg_str
+    def _get_include_tests_arg_str(self, include_tm: TestModule = None) -> Tuple[str, str]:
+        if not include_tm:
+            return "", ""
+        
+        return "-k " + include_tm.name, include_tm.test_file.path
     
     def _get_coveragerc(self, base_path: Path) -> str:
         """Returns a .coveragerc file that omits test file patterns along with the original content"""
@@ -296,11 +290,13 @@ class PytestDiffRunner:
         repo_path: Path,  
         selected_tests: str, 
         deselected_tests: str,
-        custom_cmd: str
+        test_file: str = "",
+        custom_cmd: str = ""
     ):
         """
         Constructs the cmdstr for running pytest
         """
+        test_path = test_file if test_file else self.test_folder
         cd_cmd = [
             "cd",
             str(repo_path),
@@ -313,7 +309,7 @@ class PytestDiffRunner:
                 str(self.interpreter),
                 "-m",
                 "pytest",
-                str(self.test_folder),
+                str(test_path),
                 "--tb",
                 "short",
                 selected_tests,
@@ -396,16 +392,14 @@ class PytestDiffRunner:
             if patch_file:
                 patch_file.path = git_repo.repo_folder / patch_file.path
 
-            # create patchfile for coveragerc
-            # coverage_rc = self._get_coveragerc(git_repo.repo_folder)
-
-            # patches.append(PatchFile(
-            #     path=git_repo.repo_folder / ".coveragerc", 
-            #     patch=coverage_rc
-            # ))
+            # write .coveragerc to exclude test files
+            coverage_rc = self._get_coveragerc(git_repo.repo_folder)
+            patches.append(PatchFile(
+                path=git_repo.repo_folder / ".coveragerc", 
+                patch=coverage_rc
+            ))
             if patch_file:
                 patches.append(patch_file)
-                print(patch_file.patch)
                 
             env = os.environ.copy()
             if self.python_path:
@@ -414,9 +408,9 @@ class PytestDiffRunner:
             exclude_tests = self._get_exclude_tests_arg_str(
                 args.exclude_tests, git_repo.repo_folder
             )
-            include_tests = self._get_include_tests_arg_str(args.include_tests)
+            include_tests, test_file = self._get_include_tests_arg_str(args.include_tests)
             cmd_str = self._construct_cmd(
-                git_repo.repo_folder, include_tests, exclude_tests, custom_cmd
+                git_repo.repo_folder, include_tests, exclude_tests, test_file=test_file, custom_cmd=custom_cmd
             )
             log.info(f"CMD: {cmd_str}")
 

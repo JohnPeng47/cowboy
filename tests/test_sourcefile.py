@@ -1,6 +1,6 @@
 import pytest
 from pathlib import Path
-from cowboy_lib.repo.source_file import SourceFile, NodeType, NodeNotFound
+from cowboy_lib.repo.source_file import TestFile, SourceFile, NodeType, NodeNotFound
 from cowboy_lib.ast import PythonAST
 
 def test_source_file_basic_operations():
@@ -155,3 +155,28 @@ def test_detect_indentation():
     print(indent)
     # assert indent.char == " "
     # assert indent.size == 4
+
+def test_scope_class():
+    """Test that test functions have correct scope assignment"""
+    sample_code = [
+        "def test_something():",
+        "    return True",
+        "",
+        "class TestClass:",
+        "    def test_method(self):",
+        "        pass",
+        ""
+    ]
+
+    source = TestFile(lines=sample_code, spath=Path("test.py"))
+    
+    # Test standalone test function scope
+    func = source.find_function("test_something")
+    assert func.scope is None  # Top-level functions have no scope
+    
+    # Test method within class scope
+    method = source.find_function("TestClass.test_method")
+    assert method.scope.name == "TestClass"
+
+    for func in source.test_funcs():
+        assert func.scope

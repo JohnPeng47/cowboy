@@ -80,7 +80,7 @@ class AugmentAdditiveEvaluator(Evaluator):
                 indvtest_cov = await self.run_test(
                     self.repo_name,
                     self.run_args,
-                    include_tests=[tm.name],
+                    include_tests=tm,
                     patch_file=patch_file,
                     use_cache=False,
                     delete_last=False

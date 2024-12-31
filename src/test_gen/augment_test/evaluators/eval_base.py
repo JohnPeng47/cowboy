@@ -47,7 +47,7 @@ class Evaluator(ABC):
             newtest_cov = await self.run_test(
                 self.repo_name, 
                 self.run_args, 
-                include_tests=[self.tm.name],
+                include_tests=self.tm,
                 patch_file=patch_file, 
                 use_cache=False,
                 delete_last=False

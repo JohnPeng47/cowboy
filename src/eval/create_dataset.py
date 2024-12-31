@@ -58,7 +58,7 @@ async def handicap_tm(
     num_to_del = num_delete(tm, to_keep=to_keep, to_delete=to_delete)
     if num_to_del < 3:
         log.info(f"Skipping {tm.name} as no tests to delete")
-        raise NoTestsToDelete()
+        # raise NoTestsToDelete()
 
     og_contents = tm.test_file.to_code()
 
@@ -67,15 +67,15 @@ async def handicap_tm(
     # we take the module coverage before and after the unit tests have been rmeoved
     # to calcuate the difference in coverage
     removed_tests = []
-    modcov_before = await run_test_local(repo_name, None, include_tests=[tm.name], use_cache=False)
+    modcov_before = await run_test_local(repo_name, None, include_tests=tm, use_cache=False)
     for func in tm.tests[:num_to_del]:
         tm.test_file.delete(
             func.name, node_type=NodeType.Function
         )
         modcov_notest = await run_test_local(
             repo_name, None, 
-            include_tests=[tm.name],
-            exclude_tests=[func.name], 
+            include_tests=tm,
+            exclude_tests=[(func, tm.test_file.path)], 
             use_cache=False
         )
         test_cov = modcov_before.get_coverage() - modcov_notest.get_coverage()
@@ -96,7 +96,7 @@ async def handicap_tm(
     log.info(f"OG file content length: {len(og_contents)}")
     log.info(f"New file content length: {len(handicap_testfile)}")
 
-    modcov_after = await run_test_local(repo_name, None, include_tests=[tm.name], use_cache=False)
+    modcov_after = await run_test_local(repo_name, None, include_tests=tm, use_cache=False)
     diff_cov = modcov_before.get_coverage() - modcov_after.get_coverage()
 
     row = TestModuleEvalData(

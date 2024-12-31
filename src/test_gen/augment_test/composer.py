@@ -150,7 +150,7 @@ class Composer:
             module_cov = await self.run_test(
                 self.repo_name, 
                 self.run_args, 
-                include_tests=[self.test_input.name],
+                include_tests=self.test_input,
                 patch_file=updated_patchfile,
                 use_cache=False
             )

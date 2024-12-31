@@ -1,13 +1,13 @@
 from src.test_gen.augment_test.evaluators import AugmentAdditiveEvaluator
 from src.repo.models import RepoConfig
-from src.runner.service import RunServiceArgs
 from src.runner.local.run_test import run_test
 from src.test_gen.augment_test.types import StratResult
 from src.local.db import get_tm
 
 from cowboy_lib.repo import SourceRepo
 import pytest
-from pathlib import Path
+
+from tests.utils import GitCommitContext
 
 pytestmark = pytest.mark.asyncio
 
@@ -56,33 +56,35 @@ async def test_additive_evaluator(test_repoconfig: RepoConfig, source_repo: Sour
     """Initialize AugmentAdditiveEvaluator with test repo"""
 
     math_utils_tm = get_tm("testrepo", "test_math_utils.py")    
-    module_cov = await run_test(
-        "testrepo",
-        None,
-        include_tests=["test_math_utils.py"],
-        use_cache=False
-    )
 
-    # print(math_utils_tm.test_file.to_code())
-    # for cov in module_cov.get_coverage().cov_list:
-    #     print("Covered:" , cov.filename, cov.covered)
-    #     # cov.read_line_contents(Path(test_repoconfig.source_folder))
-    #     # print(cov.print_lines())
+    with GitCommitContext(source_repo.repo_path,"26c8f8e4a7dd0ae1028769f27ccc3faecff085f0"):
+        module_cov = await run_test(
+            "testrepo",
+            None,
+            include_tests=math_utils_tm,
+            use_cache=False
+        )
 
-    # return
-    
-    evaluator = AugmentAdditiveEvaluator(
-        repo_name=test_repoconfig.repo_name,
-        src_repo=source_repo,
-        run_args=None,
-        tm=None,
-        run_test=run_test,
-    )
-    improved, failed, no_improve = await evaluator(
-        [StratResult(TEST_MATH_UTILS, "tests/test_math_utils.py")],
-        math_utils_tm,
-        module_cov.get_coverage(),
-        math_utils_tm.test_file
-    )
+        # print(math_utils_tm.test_file.to_code())
+        # for cov in module_cov.get_coverage().cov_list:
+        #     print("Covered:" , cov.filename, cov.covered)
+        #     # cov.read_line_contents(Path(test_repoconfig.source_folder))
+        #     # print(cov.print_lines())
 
-    assert len(improved) == 2
+        # return
+        
+        evaluator = AugmentAdditiveEvaluator(
+            repo_name=test_repoconfig.repo_name,
+            src_repo=source_repo,
+            run_args=None,
+            tm=None,
+            run_test=run_test,
+        )
+        improved, failed, no_improve = await evaluator(
+            [StratResult(TEST_MATH_UTILS, "tests/test_math_utils.py")],
+            math_utils_tm,
+            module_cov.get_coverage(),
+            math_utils_tm.test_file
+        )
+
+        assert len(improved) == 2

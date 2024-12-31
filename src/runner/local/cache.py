@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Optional
 import inspect
 
+from cowboy_lib.test_modules import TestModule
 from cowboy_lib.coverage import CoverageResult
 from cowboy_lib.repo.repository import PatchFile
 
@@ -77,7 +78,7 @@ def cache_test_run(func):
         repo_name: str,
         service_args: Any,
         exclude_tests: list = [],
-        include_tests: list = [],
+        include_tests: TestModule = None,
         patch_file: Optional[PatchFile] = None,
         stream = False,
         use_cache = True,

@@ -87,7 +87,7 @@ async def get_tm_target_coverage(
     """
 
     # First loop we find the total coverage of each test by itself
-    only_module = [tm.name]
+    only_module = tm
     log.info(f"Collecting target chunks for {tm.name}")
 
     # TODO: should be storing this as well

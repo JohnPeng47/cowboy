@@ -42,6 +42,14 @@ def iter_test_modules(src_repo: SourceRepo, filter_fn=None) -> List[TestModule]:
     #             tm.name = get_new_name(tm.name, tm.test_file.path)
     #             name_counter = Counter([tm.name for tm in test_modules])
 
+    seen_modules = []
+    for tm in test_modules:
+        if tm.name in seen_modules:
+            print("DUPLICATE MODULES: ", tm.name)
+
+        seen_modules.append(tm.name)
+
+
     if filter_fn:
         test_modules = [tm for tm in test_modules if filter_fn(tm)]
 

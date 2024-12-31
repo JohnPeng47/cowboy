@@ -1,21 +1,31 @@
 from cowboy_lib.repo.repository import PatchFile
-from cowboy_lib.api.runner.shared import RunTestTaskArgs
+# TODO: need to replace definition of RunTestTaskArgs to be compatible with include_tests == TestModule
+# from cowboy_lib.api.runner.shared import RunTestTaskArgs
 from cowboy_lib.coverage import CoverageResult
 from cowboy_lib.ast.code import Function
+from cowboy_lib.test_modules import TestModule
 
 from ..models import RunServiceArgs 
 from .python import PytestDiffRunner
 from .models import RepoConfig
 from .cache import cache_test_run
 
+from pydantic import BaseModel
 from src.config import TESTCONFIG_ROOT
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Tuple, Optional, Any
 import json
+
+class RunTestTaskArgs(BaseModel):
+    repo_name: str
+    patch_file: Optional[PatchFile] = None
+    exclude_tests: List[Tuple[Any, Any]] = []
+    include_tests: Optional[TestModule] = None
+
+    model_config = {"arbitrary_types_allowed": True}
 
 class RepoConfigException(Exception):
     pass
-
 
 def get_repo_config(repo_name: str, ret_json = False) -> RepoConfig:
     filename = f"{repo_name}.json"
@@ -34,7 +44,7 @@ async def run_test(
     repo_name: str,
     service_args: RunServiceArgs, # dont actually need this argument here, just for compatability
     exclude_tests: List[Tuple[Function, str]] = [],
-    include_tests: List[str] = [],
+    include_tests: TestModule = None,
     patch_file: PatchFile = None,
     stream: bool = False,
     use_cache: bool = True,

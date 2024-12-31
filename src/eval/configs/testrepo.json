@@ -6,7 +6,7 @@
     ],
     "source_folder": "/home/ubuntu/test_repo",
     "python_conf": {
-        "cov_folders": ["src"],
+        "cov_folders": ["."],
         "interp": "/home/ubuntu/cowboy-server/.venv/bin/python",
         "test_folder": "tests",
         "pythonpath": ""
