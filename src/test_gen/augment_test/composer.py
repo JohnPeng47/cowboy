@@ -15,7 +15,7 @@ from cowboy_lib.coverage import TestCoverage, TestError
 from src.test_gen.augment_test.strats import AugmentStratType, AUGMENT_STRATS
 from src.runner.service import RunServiceArgs
 from src.exceptions import CowboyRunTimeException
-from src.llm import LLMModel, Model
+from src.llm import LLMModel
 from src.logger import testgen_logger as log
 from src.utils import green_text
 
@@ -52,7 +52,7 @@ class Composer:
         src_repo: SourceRepo,
         test_input: TestCaseInput,
         run_args: RunServiceArgs,
-        model: Model,
+        model: str,
         api_key: str = None,
         verify: bool = False,
         run_test: Callable = None,

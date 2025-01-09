@@ -4,12 +4,7 @@ from pathlib import Path
 import sqlite3
 import hashlib
 import json
-from enum import Enum
 import functools
-
-# for deepseek
-from openai import OpenAI
-from src.config import DEEPSEEK_API_KEY
 
 from pydantic import BaseModel
 import tiktoken
