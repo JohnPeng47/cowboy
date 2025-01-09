@@ -79,3 +79,73 @@ def test_normal_subtraction():
     assert result.cov_list[2].covered_lines == [4, 5]  # file3.py: [1,2,3,4,5] - [1,2,3] = [4,5]
     assert result.isdiff is True
     assert result.total_cov.covered == 6
+
+def test_get_covered():
+    # First test coverage with 2 files
+    coverage1_a = Coverage("file1.py", [1, 2, 3, 4], [5, 6])
+    coverage1_b = Coverage("file2.py", [1, 2, 3], [4, 5, 6]) 
+    test_cov1 = TestCoverage([coverage1_a, coverage1_b])
+
+    # Second test coverage with 2 files
+    coverage2_a = Coverage("file1.py", [1, 2, 3, 4, 5], [6])
+    coverage2_b = Coverage("file2.py", [1, 2, 3, 6], [4, 5])
+    test_cov2 = TestCoverage([coverage2_a, coverage2_b])
+
+    # Test get_covered() which returns number of lines in test_cov2 that are also in test_cov1
+    covered = test_cov1.get_covered(test_cov2)
+    
+    # test_cov2 has [1,2] covered in file1.py and [1] covered in file2.py
+    # All of these lines are also covered in test_cov1
+    # So total covered lines = 3
+    assert covered == 7
+
+def test_get_covered2():
+    # First test coverage with 2 files
+    coverage1_a = Coverage("file1.py", [1], [5, 6])
+    coverage1_b = Coverage("file2.py", [1, 2, 3], [4, 5, 6]) 
+    test_cov1 = TestCoverage([coverage1_a, coverage1_b])
+
+    # Second test coverage with 2 files
+    coverage2_a = Coverage("file1.py", [2], [6])
+    coverage2_b = Coverage("file2.py", [1, 2, 3, 6], [4, 5])
+    test_cov2 = TestCoverage([coverage2_a, coverage2_b])
+
+    # Test get_covered() which returns number of lines in test_cov2 that are also in test_cov1
+    covered = test_cov1.get_covered(test_cov2)
+    
+    # test_cov2 has [1,2] covered in file1.py and [1] covered in file2.py
+    # All of these lines are also covered in test_cov1
+    # So total covered lines = 3
+    assert covered == 3
+
+def test_add_coverage():
+    # Create empty base coverage
+    test_cov1 = TestCoverage([], isdiff=True)
+
+    # First test coverage with 2 files
+    coverage1_a = Coverage("file1.py", [1, 2], [3, 4])
+    coverage1_b = Coverage("file2.py", [1], [2, 3])
+    test_cov2 = TestCoverage([coverage1_a, coverage1_b], isdiff=True)
+
+    # Second test coverage with 2 files 
+    coverage2_a = Coverage("file1.py", [3, 4], [1, 2])
+    coverage2_b = Coverage("file2.py", [2, 3], [1])
+    test_cov3 = TestCoverage([coverage2_a, coverage2_b], isdiff=True)
+
+    test_cov1 += test_cov2
+
+    assert test_cov1.total_cov.stmts == 7
+    assert test_cov1.total_cov.covered == 3
+    assert test_cov1.total_cov.misses == 4
+    assert test_cov1.get_file_cov("file1.py", "").covered_lines == [1,2]
+    assert test_cov1.get_file_cov("file2.py", "").covered_lines == [1]
+
+    test_cov1 += test_cov3
+
+    assert test_cov1.total_cov.stmts == 7
+    assert test_cov1.total_cov.covered == 7
+    assert test_cov1.total_cov.misses == 0
+    assert test_cov1.get_file_cov("file1.py", "").covered_lines == [1,2,3,4]
+    assert test_cov1.get_file_cov("file2.py", "").covered_lines == [1,2,3]
+
+

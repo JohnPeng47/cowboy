@@ -17,6 +17,7 @@ from src.runner.service import RunServiceArgs
 from src.exceptions import CowboyRunTimeException
 from src.llm import LLMModel, Model
 from src.logger import testgen_logger as log
+from src.utils import green_text
 
 from src.config import LLM_RETRIES
 
@@ -54,7 +55,9 @@ class Composer:
         model: Model,
         api_key: str = None,
         verify: bool = False,
-        run_test: Callable = None
+        run_test: Callable = None,
+        use_cache: bool = True,
+        delete_last: bool = False
     ):
         self.repo_name = repo_name
         self.src_repo = src_repo
@@ -62,15 +65,25 @@ class Composer:
         self.verify = verify
         self.run_args = run_args
         self.run_test = run_test
+        # cache settings
+        self.use_cache = use_cache
+        self.delete_last = delete_last
 
         self.strat: BaseStrategy = AUGMENT_STRATS[strat](self.src_repo, self.test_input)
         self.evaluator: Evaluator = AUGMENT_EVALS[evaluator](
-            self.repo_name, self.src_repo, self.run_args, test_input, self.run_test
+            self.repo_name, 
+            self.src_repo, 
+            self.run_args, 
+            test_input, 
+            self.run_test,
+            use_cache = self.use_cache,
+            delete_last = self.delete_last
         )
         self.model_name = model
         self.model = LLMModel()
 
-        print("Using model: ", self.model_name)
+        if self.use_cache:
+            print(green_text(f"RUNNING WITH CACHE: use_cache = {self.use_cache}, delete_last = {self.delete_last}"))
 
     def get_strat_name(self) -> str:
         return self.__class__.__name__
@@ -152,7 +165,8 @@ class Composer:
                 self.run_args, 
                 include_tests=self.test_input,
                 patch_file=updated_patchfile,
-                use_cache=False
+                use_cache=self.use_cache,
+                delete_last=self.delete_last
             )
 
             module_cov = module_cov.get_coverage()
@@ -201,8 +215,10 @@ class Composer:
     ]:
         if isinstance(self.evaluator, AugmentAdditiveEvaluator):
             return await self.gen_test_serial_additive(n_times)
-        elif isinstance(self.evaluator, AugmentParallelEvaluator):
-            return await self.gen_test_parallel(n_times)
+        
+        # doesnt work rn ...
+        # elif isinstance(self.evaluator, AugmentParallelEvaluator):
+        #     return await self.gen_test_parallel(n_times)
 
     async def _llm_generate_with_retry(self, prompt: str, i) -> str:
         """
@@ -217,14 +233,13 @@ class Composer:
                 llm_res = self.model.invoke(
                     prompt,
                     model_name = self.model_name,
-                    use_cache=True,
-                    key=i
+                    key=i,
+                    use_cache = self.use_cache,
+                    delete_cache = self.delete_last,
                 )
-                # NEWTODO(BUG1): new implementation should create a TestFile here out of the generated
-                # tests so we can be sure that the indents are validated
-
                 # need this for deepseek ..
-                llm_res = extract_python_code(llm_res)                
+                llm_res = extract_python_code(llm_res)
+
                 src_file = self.strat.parse_llm_res(llm_res)
             except (SyntaxError, ValueError, LintException):
                 log.info(f"LLM syntax error ... {retries} left")

@@ -24,13 +24,13 @@ def iter_test_modules(src_repo: SourceRepo, filter_fn=None) -> List[TestModule]:
         ind_funcs = [f for f in test_file.test_funcs() if not f.scope]
         if ind_funcs:
             func_module = TestModule(
-                test_file, ind_funcs, get_current_git_commit(src_repo.repo_path)
+                test_file, False, test_file.path.name, get_current_git_commit(src_repo.repo_path)
             )
             test_modules.append(func_module)
 
         for test_class in test_file.test_classes():
             class_module = TestModule(
-                test_file, [test_class], get_current_git_commit(src_repo.repo_path)
+                test_file, True, test_class.name, get_current_git_commit(src_repo.repo_path)
             )
             test_modules.append(class_module)
 

@@ -12,6 +12,7 @@ from src.database.core import engine
 from src.runner.local.run_test import run_test as run_test_local
 from src.local.models import TestModuleEvalData, RemovedTest
 from src.logger import buildtm_logger as log
+from src.utils import red_text
 
 class NoTestsToDelete(Exception):
     pass
@@ -97,34 +98,40 @@ async def handicap_tm(
     log.info(f"New file content length: {len(handicap_testfile)}")
 
     modcov_after = await run_test_local(repo_name, None, include_tests=tm, use_cache=False)
-    diff_cov = modcov_before.get_coverage() - modcov_after.get_coverage()
+    cov_diff = modcov_before.get_coverage() - modcov_after.get_coverage()
 
-    row = TestModuleEvalData(
-        name=tm.name,
-        file_content=handicap_testfile,
-        repo_config=repo_config,
-        expected=diff_cov.total_cov.covered,
-        removed_tests=removed_tests,
-        tags=[tm.name]
-    )
-    row.persist(tm)
-
-    # TODO: hitting limit for row size here with braintrust
-    # dataset.update(
-    #     tm.name,
-    #     TestModuleRow(
-    #         tm=tm,
-    #         base_cov=base_cov,
-    #         file_content=file_contents,
-    #         module_cov=diff_cov,
-    #         repo_config=repo_config,
-    #         expected=diff_cov.total_cov.covered
-    #     ).to_json(),
-    #     tags=[tm.name]
-    # )
-
-    log.info(f"Diff coverage: {diff_cov.total_cov.covered}")
-    log.info(f"Updating dataset with: {tm.name}")
-
-    return tm.test_file.path, handicap_testfile 
+    if cov_diff.total_cov.covered == 0:
+        log.info(red_text(f"No coverage after removing {total_deleted} tests"))
     
+        return "", "", 0
+    
+    else:
+        row = TestModuleEvalData(
+            name=tm.name,
+            file_content=handicap_testfile,
+            repo_config=repo_config,
+            removed_tests=removed_tests,
+            tags=[tm.name],
+            expected=cov_diff
+        )
+        row.persist(tm)
+
+        # NEWTODO: upload data to braintrust
+        # dataset.update(
+        #     tm.name,
+        #     TestModuleRow(
+        #         tm=tm,
+        #         base_cov=base_cov,
+        #         file_content=file_contents,
+        #         module_cov=diff_cov,
+        #         repo_config=repo_config,
+        #         expected=diff_cov.total_cov.covered
+        #     ).to_json(),
+        #     tags=[tm.name]
+        # )
+
+        log.info(f"Diff coverage: {cov_diff.total_cov.covered}")
+        log.info(f"Updating dataset with: {tm.name}")
+
+        return tm.test_file.path, handicap_testfile, total_deleted
+        

@@ -64,14 +64,6 @@ async def test_additive_evaluator(test_repoconfig: RepoConfig, source_repo: Sour
             include_tests=math_utils_tm,
             use_cache=False
         )
-
-        # print(math_utils_tm.test_file.to_code())
-        # for cov in module_cov.get_coverage().cov_list:
-        #     print("Covered:" , cov.filename, cov.covered)
-        #     # cov.read_line_contents(Path(test_repoconfig.source_folder))
-        #     # print(cov.print_lines())
-
-        # return
         
         evaluator = AugmentAdditiveEvaluator(
             repo_name=test_repoconfig.repo_name,
@@ -79,6 +71,8 @@ async def test_additive_evaluator(test_repoconfig: RepoConfig, source_repo: Sour
             run_args=None,
             tm=None,
             run_test=run_test,
+            use_cache=True,
+            delete_last=False
         )
         improved, failed, no_improve = await evaluator(
             [StratResult(TEST_MATH_UTILS, "tests/test_math_utils.py")],

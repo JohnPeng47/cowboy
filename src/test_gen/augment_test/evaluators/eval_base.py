@@ -22,12 +22,16 @@ class Evaluator(ABC):
         run_args: RunServiceArgs,
         tm: "TestModule",
         run_test: Callable,
+        use_cache = False,
+        delete_last = False
     ):
         self.repo_name = repo_name
         self.src_repo = src_repo
         self.run_args = run_args
         self.run_test = run_test
         self.tm = tm
+        self.use_cache = use_cache
+        self.delete_last = delete_last
 
     async def diff_coverage(
         self,
@@ -49,8 +53,8 @@ class Evaluator(ABC):
                 self.run_args, 
                 include_tests=self.tm,
                 patch_file=patch_file, 
-                use_cache=False,
-                delete_last=False
+                use_cache=self.use_cache,
+                delete_last=self.delete_last
             )
             cov_diff = newtest_cov.get_coverage() - module_cov
             if cov_diff.total_cov.covered < 0:

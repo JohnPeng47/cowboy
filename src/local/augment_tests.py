@@ -2,6 +2,7 @@ from typing import Dict
 from pathlib import Path
 from dataclasses import asdict
 from cowboy_lib.repo import SourceRepo
+from cowboy_lib.coverage import TestCoverage
 
 from src.utils import get_repo_head, yaml
 from src.test_gen.augment_test.composer import Composer
@@ -38,13 +39,16 @@ async def extend_tests(data: Dict):
         run_args=None,
         model=model,
         api_key=COWBOY_OPENAI_API_KEY,
-        run_test=run_test
+        run_test=run_test,
+        ## cache settigns
+        use_cache = False,
+        delete_last = False
     )
     improved, failed_tests, no_improve_tests = await composer.generate_test(
         n_times=n_times
     )
     output_dir = EVAL_OUTPUT_ROOT / repo_data.repo_config["repo_name"]
-    cov_added = 0
+    cov_added = TestCoverage([], isdiff=True)
 
     git_hash = get_repo_head(src_repo.repo_path)
     test_results = TestResults(
@@ -57,7 +61,8 @@ async def extend_tests(data: Dict):
     # NEWTODO: should add a check here that the coverage added is apart of the sourcefiles thats 
     # covered by this test
     for test, test_cov in improved:
-        cov_added += test_cov.total_cov.covered
+        cov_added += test_cov
+
         test_case = TestCase(
             name=test.name,
             coverage_added=test_cov.total_cov.covered,
@@ -71,7 +76,7 @@ async def extend_tests(data: Dict):
 
     return {
         "new_tests": [asdict(test) for test in test_results.tests],
-        "cov_added": cov_added,
+        "cov_added": cov_added.serialize(),
         "improved": len(improved),
         "failed": len(failed_tests),
         "no_improve": len(no_improve_tests)

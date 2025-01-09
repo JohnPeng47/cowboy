@@ -16,7 +16,7 @@ from src.test_gen.models import TMSelectModeBase, AugmentTestResult
 class IncompatibleCommit(Exception):
     pass
 
-
+# SERVER_CODE UPDATE:
 class TestModuleModel(Base):
     __tablename__ = "test_modules"
     id = Column(Integer, primary_key=True)
@@ -41,7 +41,7 @@ class TestModuleModel(Base):
         backref="test_module",
         foreign_keys=[TargetCodeModel.test_module_id],
         cascade="all",
-    )
+)
     test_results = relationship(
         "AugmentTestResult",
         backref="test_module",
@@ -78,6 +78,7 @@ class TestModuleModel(Base):
         """
         return TestModule(
             test_file=src_repo.find_file(Path(self.testfilepath)),
+            
             commit_sha=self.commit_sha,
             nodes=[NodeModel.to_astnode(n, src_repo) for n in self.nodes],
             chunks=[c.serialize(src_repo) for c in self.target_chunks],

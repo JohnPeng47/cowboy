@@ -2,21 +2,32 @@ import dotenv
 from typing import Dict, List
 from braintrust import EvalAsync
 
+from cowboy_lib.coverage import TestCoverage
+
 from src.local.augment_tests import extend_tests
-from src.local.models import read_rows, TestModuleData, TestModuleEvalData
 
 dotenv.load_dotenv()
 
 ## Scoring functions
-def score_coverage(output: Dict, expected: int):
+def score_coverage(output: Dict, expected: Dict):
     """
     Coverage improvement out of total possible expected coverage (sum of all coverage 
     from neutered tests)
     """
-    cov_added = output["cov_added"]
+    total_cov = TestCoverage.deserialize(expected)
+    cov_added = TestCoverage.deserialize(output["cov_added"])
+    score = total_cov.get_covered(cov_added)
 
-    print(f"Cov added: {cov_added} / {expected}")
-    return cov_added / expected
+    print("COV EXPECTED:")
+    for cov_expected in total_cov.cov_list:
+        print(cov_expected)
+
+    print("COV ADDED:")
+    for cov_add in cov_added.cov_list:
+        print(cov_add)
+
+    print(f"Cov added: {score} / {total_cov.total_cov.covered}")
+    return score / total_cov.total_cov.covered
 
 def score_improved_tests(output: Dict, expected: int):
     """

@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import List, Tuple
 from braintrust import init_dataset
 from functools import wraps
+import git
 
 from cowboy_lib.test_modules import TestModule
 from cowboy_lib.repo import SourceRepo
@@ -24,7 +25,7 @@ from src.local.apply import (
     TestApplyError,
     apply_tests
 )
-from src.utils import confirm_action
+from src.utils import confirm_action, red_text
 
 
 def parse_list(ctx, param, value):
@@ -81,7 +82,7 @@ async def evaluate(repo_name: str,
         read_rows(repo_name, braintrust, list_tms=True)
         sys.exit()
         
-    if selected_tms and num_tms:
+    if selected_tms and num_tms > 0:
         raise ValueError("Cannot provide both selected-tms and num-tms")
     
     if selected_tms:
@@ -89,11 +90,18 @@ async def evaluate(repo_name: str,
     elif num_tms != -1:
         tm_datalist = read_rows(repo_name, braintrust, limit=num_tms)
     else:
-        raise ValueError("Must provide either selected-tms or num-tms argument. If you want to run on all tests, use --num-tms 0 ")
+        raise ValueError("Must provide either selected-tms or num-tms argument. If you want to run on all tests, use --num-tms BIG_NUMBER")
+
+    src_covered_datalist = []
+    for datum in tm_datalist:
+        if get_tm(repo_name, datum.name).targeted_files():
+            src_covered_datalist.append(datum)
+        else:
+            print(red_text(f"{datum.name} is not covered"))
 
     # convert to braintrust
     if braintrust:
-        dataset = [datum.to_json_braintrust() for datum in tm_datalist]
+        dataset = [datum.to_json_braintrust() for datum in src_covered_datalist]
         tm_names = [d["input"]["name"] for d in dataset]
         for d in dataset:
             d["input"].update(
@@ -106,7 +114,7 @@ async def evaluate(repo_name: str,
             )
 
     else:
-        dataset = [datum.to_json() for datum in tm_datalist]
+        dataset = [datum.to_json() for datum in src_covered_datalist]
         tm_names = [d["name"] for d in dataset]
         for d in dataset:
             d.update(
@@ -177,9 +185,10 @@ async def setup_eval_repo(repo_name: str,
         filtered_tms = [tm for tm in test_modules if tm.name in selected_tms]
     else:
         filtered_tms = test_modules[::skip]
-        filtered_tms = filtered_tms[1:num_tms]
+        filtered_tms = filtered_tms[1:len(filtered_tms)]
     
     handicapped = []
+    processed_tms = 0
     for tm in filtered_tms:
         # try:
         #     tm = get_tm(repo_name, tm.name)
@@ -189,7 +198,7 @@ async def setup_eval_repo(repo_name: str,
 
         # remove tests from existing testfile
         # NEWTODO: not handling cases where there are multiple testfiles mapped to a TestModule
-        testfile_fp, newfile_contents = await handicap_tm(
+        testfile_fp, newfile_contents, deleted = await handicap_tm(
             dataset,
             repo.repo_name,
             tm,
@@ -197,13 +206,27 @@ async def setup_eval_repo(repo_name: str,
             to_keep=keep, 
             to_delete=delete,
         )
-        handicapped.append((testfile_fp, newfile_contents))
+        if testfile_fp and newfile_contents and deleted:
+            handicapped.append((testfile_fp, newfile_contents, deleted))
+            processed_tms += 1
+            if num_tms and processed_tms == num_tms:
+                break
 
     # NOTE: need to do this here or else subsequent calls to run_testsuite in handicap_tm will reset
     # the repo commit hash
-    for fp, content in handicapped:
+    commit_msg = ""
+    for fp, content, deleted in handicapped:
         with open(repo.source_folder / fp, "w", encoding="utf-8") as f:
             f.write(content)
+
+        commit_msg += f"Deleted {deleted} tests from {fp}\n"
+
+    # create a new commit for all of the changes
+    git_repo = git.Repo(repo.source_folder)
+    git_repo.git.add(".")
+    git_repo.index.commit(commit_msg)
+
+    print("Commited with message: ", commit_msg)
 
 @cli.command()
 @click.argument("repo_name", type=str)

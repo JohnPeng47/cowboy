@@ -238,8 +238,8 @@ class LLMModel:
                     if response_format is not None:
                         return response_format.model_validate(cached_response)
                     
-                    print("Cache hit: ", model_name, prompt[:20], key, prompt_hash[:4])
-                    return cached_response
+                    print("Cache hit: ", model_name, prompt[:20], key)
+                    return cached_response["content"]
             
             # Get response from LLM
             res = func(self, prompt, temperature, model_name=model_name, 

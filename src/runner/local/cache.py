@@ -4,7 +4,7 @@ import json
 import pickle
 from functools import wraps
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, List
 import inspect
 
 from cowboy_lib.test_modules import TestModule
@@ -30,18 +30,19 @@ def init_cache():
     conn.commit()
     conn.close()
 
-def compute_hash(repo_name: str, exclude_tests: list, include_tests: list, patch_file: Optional[PatchFile]) -> str:
+def compute_hash(repo_name: str, 
+                 exclude_tests: list, 
+                 include_tests: TestModule, 
+                 patch_file: Optional[PatchFile]) -> str:
     """Compute a hash of the input arguments"""
     hash_input = {
         "repo_name": repo_name,
         "exclude_tests": exclude_tests,
-        "include_tests": include_tests,
+        "include_tests": include_tests.to_str() if include_tests else None,
         "patch": patch_file.patch if patch_file else None
     }
 
     # janky, idk why sometimes I pass string and sometimes Function
-    if hash_input["include_tests"] and not isinstance(hash_input["include_tests"][0], str):
-        hash_input["include_tests"] = [func.to_json() for func in hash_input["include_tests"]]
     if hash_input["exclude_tests"] and not isinstance(hash_input["exclude_tests"][0][0], str):
         hash_input["exclude_tests"] = [(func[0].to_json(), str(func[1])) for func in hash_input["exclude_tests"]]
 
@@ -50,6 +51,8 @@ def compute_hash(repo_name: str, exclude_tests: list, include_tests: list, patch
 
 def read_cache(hash_key: str) -> Optional[CoverageResult]:
     """Read a result from the cache"""
+    print("read: ", hash_key)
+
     conn = sqlite3.connect(str(DB_PATH))
     cursor = conn.cursor()
     cursor.execute("SELECT result FROM test_cache WHERE hash = ?", (hash_key,))
@@ -62,6 +65,8 @@ def read_cache(hash_key: str) -> Optional[CoverageResult]:
 
 def save_cache(hash_key: str, result: CoverageResult):
     """Save a result to the cache"""
+    print("save: ", hash_key, result)
+
     conn = sqlite3.connect(str(DB_PATH))
     cursor = conn.cursor()
     cursor.execute(
@@ -83,8 +88,7 @@ def cache_test_run(func):
         stream = False,
         use_cache = True,
         delete_last = False,
-    ) -> CoverageResult:
-        LOG_NUM = 200
+    ) -> CoverageResult:        
         if use_cache:
             init_cache()
             cache_key = compute_hash(repo_name, exclude_tests, include_tests, patch_file)
@@ -97,7 +101,6 @@ def cache_test_run(func):
                 caller = inspect.stack()[1]  # Get immediate caller
                 print(f"Returning from cache: {(repo_name, exclude_tests, include_tests)}")
                 print(f"|---> Called from {caller.filename}:{caller.lineno} in {caller.function}")
-
                 return cached_result
             
         # collecting basecov for the first time, we will stream the result to the console
@@ -106,7 +109,6 @@ def cache_test_run(func):
             stream = True
 
         result = await func(repo_name, service_args, exclude_tests, include_tests, patch_file, stream)
-
         if use_cache and not cached_result:
             log.info(f"Saving to cache: {(repo_name, exclude_tests, include_tests)}")
             save_cache(cache_key, result)

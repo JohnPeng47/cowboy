@@ -121,18 +121,18 @@ class TestModuleEvalData(TestModuleData):
     """
     TestModuleData used for evaluations that contains extra fields for scoring evaluation results
     """
-    expected: int = 0
     tags: List[str] = field(default_factory=list)
     removed_tests: List[RemovedTest] = field(default_factory=list)
+    expected: TestCoverage = field(default=None) # unique coverage contributed by this test case
         
     def to_json(self) -> Dict:
         return {
             "name": self.name,
             "file_content": self.file_content,
             "repo_config": self.repo_config,
-            "expected": self.expected,
             "removed_tests": [t.to_json() for t in self.removed_tests],
-            "tags": self.tags
+            "tags": self.tags,
+            "expected": self.expected.serialize() if self.expected else None
         }
     
     def to_json_braintrust(self) -> Dict:
@@ -141,10 +141,10 @@ class TestModuleEvalData(TestModuleData):
                 "name": self.name,
                 "file_content": self.file_content,
                 "repo_config": self.repo_config,
-                "removed_tests": [t.to_json() for t in self.removed_tests]
+                "removed_tests": [t.to_json() for t in self.removed_tests],
             },
-            "expected": self.expected,
-            "tags": self.tags
+            "tags": self.tags,
+            "expected": self.expected.serialize() if self.expected else None
         }
     
     @classmethod
@@ -156,9 +156,9 @@ class TestModuleEvalData(TestModuleData):
             name=data["name"],
             file_content=data["file_content"],
             repo_config=data["repo_config"],
-            expected=data["expected"],
             removed_tests=[RemovedTest.from_json(t) for t in data["removed_tests"]],
-            tags=data["tags"]
+            tags=data["tags"],
+            expected=TestCoverage.deserialize(data["expected"]) if data.get("expected") else None
         )
     
 def read_rows(repo_name: str,
@@ -182,6 +182,7 @@ def read_rows(repo_name: str,
                 repo_path = Path(data.repo_config["source_folder"])
                 for test in data.removed_tests:
                     print(f"{test.content}")
+
                 # for t in data.removed_tests:
                 #     t.cov.read_line_coverage(repo_path)
                     
@@ -192,8 +193,11 @@ def read_rows(repo_name: str,
 
         return []
 
+    all_datafiles = list(repo_dir.glob("*.json"))
+    limit = limit if limit > 0 else len(all_datafiles)
+
     rows = []
-    for file_path in list(repo_dir.glob("*.json"))[:limit]:
+    for file_path in all_datafiles[:limit]:
         if selected_tms and file_path.stem not in selected_tms:
             continue
 

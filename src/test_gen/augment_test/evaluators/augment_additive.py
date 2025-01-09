@@ -82,8 +82,8 @@ class AugmentAdditiveEvaluator(Evaluator):
                     self.run_args,
                     include_tests=tm,
                     patch_file=patch_file,
-                    use_cache=False,
-                    delete_last=False
+                    use_cache=self.use_cache,
+                    delete_last=self.delete_last
                 )
 
                 test_error = indvtest_cov.get_failed(func.name)
