@@ -7,10 +7,6 @@ import json
 from enum import Enum
 import functools
 
-from langchain_core.messages.base import BaseMessage
-from langchain_openai import ChatOpenAI
-from langchain_anthropic import ChatAnthropic
-
 # for deepseek
 from openai import OpenAI
 from src.config import DEEPSEEK_API_KEY
@@ -18,66 +14,33 @@ from src.config import DEEPSEEK_API_KEY
 from pydantic import BaseModel
 import tiktoken
 
+import instructor
+from litellm import completion
+from litellm.types.utils import ModelResponse
+from pydantic import BaseModel
+
+client = instructor.from_litellm(completion)
+
 def num_tokens_from_string(string: str, encoding_name: str = "cl100k_base") -> int:
     """Returns the number of tokens in a text string."""
     encoding = tiktoken.get_encoding(encoding_name)
     num_tokens = len(encoding.encode(string, disallowed_special=()))
     return num_tokens
 
-class Model(str, Enum):
-    GPT4O = "gpt-4o"
-    CLAUDE = "claude-3-5-sonnet-latest"
-    DEEPSEEK = "deepseek"
-    
+SHORT_NAMES = {
+    "gpt-4o" : "gpt-4o",
+    "claude" : "claude-3-5-sonnet-20240620",
+    "deepseek" : "deepseek/deepseek-chat"
+}
+
 class FakeAIMessage(BaseModel):
     content: str
 
-class DeepSeekProvider:
-    def __init__(self, model: str, **kwargs):
-        self.model = model
-        self.kwargs = kwargs
-
-        self.client = OpenAI(api_key=DEEPSEEK_API_KEY, base_url="https://api.deepseek.com")
-
-    def invoke(self, prompt: str) -> FakeAIMessage:
-        res = self.client.chat.completions.create(
-            model="deepseek-chat",
-            messages=[
-                {"role": "user", "content": prompt},
-            ],
-            stream=False,
-            **self.kwargs
-        )
-        return FakeAIMessage(content=res.choices[0].message.content)
-
 class LLMModel:
     """
-    A flexible wrapper class for LangChain language models that supports arbitrary configuration.
-    
-    Example usage:
-    ```python
-    # OpenAI with response format
-    model = LLMModel(
-        provider="openai",
-        model_name="gpt-4-0125-preview",
-        temperature=0
-    )
-    
-    # Anthropic with specific temperature
-    model = LLMModel(
-        provider="anthropic",
-        model_name="claude-3-opus-20240229", 
-        temperature=0.7
-    )
-    ```
+    LLMModel that wraps LiteLLM and Instructor for structured output
+    Also implements a caching layer
     """
-    
-    # Mapping of provider names to their corresponding LangChain model classes
-    PROVIDER_MAP = {
-        Model.GPT4O: ChatOpenAI,
-        Model.CLAUDE: ChatAnthropic,
-        Model.DEEPSEEK: DeepSeekProvider
-    }
     
     def __init__(
         self,
@@ -111,7 +74,6 @@ class LLMModel:
         # Cache turned off
         return {}
 
-
     def _get_caller_info(self):
         frame = inspect.currentframe()
         caller_frame = frame.f_back.f_back  # Go back one more frame
@@ -119,18 +81,6 @@ class LLMModel:
         caller_filename = caller_frame.f_code.co_filename
 
         return caller_filename, caller_function
-
-    def use_model(self, 
-                  model_name: str, 
-                  temperature: int = 0,
-                  **kwargs: Any):
-        
-        model_class = self.PROVIDER_MAP[model_name]
-        
-        return model_class(
-            model=model_name,
-            **kwargs
-        )
         
     def _get_cache_enabled_functions(self) -> Dict[str, bool]:
         """Extract function names and their cache states from config."""
@@ -206,11 +156,10 @@ class LLMModel:
         @functools.wraps(func)
         def wrapper(self, 
                     prompt: str, 
-                    temperature: int = 0, 
                     *, 
-                    model_name: str, 
+                    model_name: str = "gpt-4o", 
                     response_format: Optional[Type[BaseModel]] = None, 
-                    use_cache: bool = True, 
+                    use_cache: bool = False, 
                     delete_cache: bool = False,
                     key: int = 0,
                     **kwargs):
@@ -242,12 +191,16 @@ class LLMModel:
                     return cached_response["content"]
             
             # Get response from LLM
-            res = func(self, prompt, temperature, model_name=model_name, 
-                      response_format=response_format, **kwargs)
+            res = func(self, 
+                       prompt, 
+                       model_name=model_name, 
+                       response_format=response_format, 
+                       **kwargs)
             
             # Prepare response for caching
-            if isinstance(res, BaseMessage):
-                cached_response = res.content
+            if isinstance(res, ModelResponse):
+                res = res.choices[0].message
+                cached_response = cached_response
             elif isinstance(res, BaseModel):
                 cached_response = res.model_dump()
             else:
@@ -258,58 +211,35 @@ class LLMModel:
                 print("Caching response: ", model_name, prompt[:20], key, prompt_hash[:4])
                 self._cache_response(caller_function, model_name, prompt_hash, cached_response)
                 
-            return res.content
+            return res
             
         return wrapper
 
     @cache_llm_response
     def invoke(self, 
                prompt: str, 
-               temperature: int = 0, 
                *, 
-               model_name: str, 
+               model_name: str = "gpt-4o", 
                response_format: Optional[Type[BaseModel]] = None,
-               timeout: Optional[float] = None,
                use_cache: bool = True,
                **kwargs) -> Any:
         """Modified invoke method with caching and timeout support."""
-        # Initialize the model
-        lm = self.use_model(
-            model_name, 
-            temperature=temperature,
-            timeout=timeout,
-            # max_retries=0,
+
+        model_name = SHORT_NAMES[model_name]
+
+        return client.chat.completions.create(
+            model=model_name,
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt,
+                }
+            ],
+            response_model=response_format,
             **kwargs
         )
- 
-        model_provider = self.PROVIDER_MAP[model_name]
-        if response_format is not None:
-            if not isinstance(model_provider, ChatOpenAI):
-                raise ValueError(
-                    f"response_format is only supported for OpenAI models, "
-                    f"but was provided for {model_provider.__name__}"
-                )
-            lm = lm.with_structured_output(response_format, strict=True)
-
-        try:
-            res = lm.invoke(prompt)
-        except Exception as e:
-            if "timeout" in str(e).lower():
-                raise TimeoutError(f"LLM request timed out after{timeout} seconds") from e
-            raise
-
-        return res
 
     def __del__(self):
         """Cleanup database cosnnection on object destruction."""
         if self.db_connection:
             self.db_connection.close()
-
-    def get_callchain(self) -> None:
-        """Prints the sequence of calls made to the invoke method."""
-        print("\nCall Chain:")
-        for idx, (file, func) in enumerate(self.call_chain, 1):
-            print(f"{idx}. File: {file}")
-            print(f"   Function: {func}")
-            if idx < len(self.call_chain):
-                print("   ↓")

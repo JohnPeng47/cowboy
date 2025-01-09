@@ -65,6 +65,8 @@ pyyaml = "^6.0.2"
 langchain-core = "^0.3.28"
 langchain-openai = "^0.2.14"
 langchain-anthropic = "^0.3.1"
+litellm = "^1.57.3"
+instructor = "^1.7.2"
 
 [build-system]
 requires = ["poetry-core"]
