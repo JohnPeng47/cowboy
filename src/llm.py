@@ -5,6 +5,8 @@ import sqlite3
 import hashlib
 import json
 import functools
+import time
+from contextlib import contextmanager
 
 from pydantic import BaseModel
 import tiktoken
@@ -13,6 +15,8 @@ import instructor
 from litellm import completion
 from litellm.types.utils import ModelResponse
 from pydantic import BaseModel
+
+from src.model_cost import TOKEN_COST
 
 client = instructor.from_litellm(completion)
 
@@ -30,6 +34,38 @@ SHORT_NAMES = {
 
 class FakeAIMessage(BaseModel):
     content: str
+
+class LLMRetry:
+    def __init__(self, max_retries: int = 3, retry_delay: float = 1.0):
+        self.max_retries = max_retries
+        self.retry_delay = retry_delay
+        self.current_retry = 0
+    
+    @contextmanager
+    def __call__(self):
+        """Context manager for handling retries"""
+        while self.current_retry <= self.max_retries:
+            try:
+                yield
+                break  # If no exception, break the loop
+                
+            except Exception as e:
+                self.current_retry += 1
+                
+                if self.current_retry > self.max_retries:
+                    # If we've exceeded retries, re-raise the exception
+                    raise e
+                
+                # Sleep before next retry
+                time.sleep(self.retry_delay)
+                
+                # Optionally log the retry attempt
+                print(f"Retry attempt {self.current_retry}/{self.max_retries} after error: {str(e)}")
+
+    def reset(self):
+        """Reset the retry counter"""
+        self.current_retry = 0
+
 
 class LLMModel:
     """
@@ -212,17 +248,16 @@ class LLMModel:
 
     @cache_llm_response
     def invoke(self, 
-               prompt: str, 
+               prompt: str,
                *, 
-               model_name: str = "gpt-4o", 
+               model_name: str = "gpt-4", 
                response_format: Optional[Type[BaseModel]] = None,
                use_cache: bool = True,
                **kwargs) -> Any:
-        """Modified invoke method with caching and timeout support."""
-
+        """Modified invoke method with caching."""
+        
         model_name = SHORT_NAMES[model_name]
-
-        return client.chat.completions.create(
+        res = client.chat.completions.create(
             model=model_name,
             messages=[
                 {
@@ -233,8 +268,43 @@ class LLMModel:
             response_model=response_format,
             **kwargs
         )
+        return res
 
     def __del__(self):
-        """Cleanup database cosnnection on object destruction."""
+        """Cleanup database connections on object destruction."""
         if self.db_connection:
             self.db_connection.close()
+
+
+class LMP[T]:
+    """
+    A language model program
+    """
+    prompt: str
+    response_format: Type[T]
+
+    def _prepare_prompt(self, **kwargs) -> str:
+        return self.prompt.format(**kwargs)
+
+    def _verify_or_raise(self, res, **kwargs):
+        return True
+
+    def invoke(self, 
+               model: LLMModel,
+               model_name: str = "claude",
+               max_retries: int = 3,
+               retry_delay: int = 1,
+               # gonna have to manually specify the args to pass into model.invoke
+               # or do some arg merging shit here
+               **kwargs) -> T | str:
+        prompt = self._prepare_prompt(**kwargs)
+        
+        retry_handler = LLMRetry(max_retries=max_retries, retry_delay=retry_delay)
+        
+        with retry_handler():
+            res = model.invoke(prompt, 
+                               model_name=model_name,
+                               response_format=self.response_format)
+            
+            self._verify_or_raise(res, **kwargs)
+            return res

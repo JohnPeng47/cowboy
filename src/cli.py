@@ -17,7 +17,7 @@ from src.eval.eval_dataset import eval_dataset, eval_dataset_braintrust
 from src.eval.create_dataset import handicap_tm
 from src.local.db import get_repo, get_tm
 from src.local.models import TestResults, TestModuleData, read_rows
-from src.local.tgt_coverage import enrich_tm_with_tgt_coverage
+from src.local.tgt_coverage import get_llm_file_coverage
 from src.local.apply import (
     validate, 
     print_test_summary, 
@@ -192,8 +192,8 @@ async def setup_eval_repo(repo_name: str,
         # try:
         #     tm = get_tm(repo_name, tm.name)
         # except Exception as e:
-        chunks = await enrich_tm_with_tgt_coverage(repo.repo_name, src_repo, base_cov, tm)
-        tm.chunks = chunks
+        chunks = await get_llm_file_coverage(repo.repo_name, src_repo, tm)
+        tm.chunks = chunks  
 
         # remove tests from existing testfile
         # NEWTODO: not handling cases where there are multiple testfiles mapped to a TestModule
