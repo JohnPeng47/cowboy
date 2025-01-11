@@ -62,7 +62,6 @@ async def extend_tests(data: Dict):
     # covered by this test
     for test, test_cov in improved:
         cov_added += test_cov
-
         test_case = TestCase(
             name=test.name,
             coverage_added=test_cov.total_cov.covered,
@@ -75,9 +74,11 @@ async def extend_tests(data: Dict):
         f.write(yaml_str)
 
     return {
+        "name": tm.name,
         "new_tests": [asdict(test) for test in test_results.tests],
         "cov_added": cov_added.serialize(),
         "improved": len(improved),
         "failed": len(failed_tests),
-        "no_improve": len(no_improve_tests)
+        "no_improve": len(no_improve_tests),
+        "target_files": [str(f) for f in tm.target_files]
     }

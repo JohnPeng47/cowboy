@@ -15,7 +15,7 @@ class AugmentClassWithCtxtStrat(AugmentTestStrategy):
         prompt = AugmentTestPromptWithCtxt()
         curr_commit = get_current_git_commit(self.src_repo.repo_path)
 
-        test_code = self.test_module.get_test_code(curr_commit)
+        test_code = self.test_module.get_test_code()
         test_fit = prompt.insert_line("test_code", test_code)
         if not test_fit:
             raise CtxtWindowExceeded("Test code too large to fit in prompt")
