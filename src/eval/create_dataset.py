@@ -3,10 +3,12 @@ from typing import List
 from pathlib import Path
 from sqlalchemy.orm import sessionmaker
 from braintrust import Dataset
+from pydantic import BaseModel
 
 from cowboy_lib.test_modules import TestModule
 from cowboy_lib.ast import NodeType
 
+from src.llm import LLMModel, LMP
 from src.config import TESTCONFIG_ROOT
 from src.database.core import engine
 from src.runner.local.run_test import run_test as run_test_local
@@ -17,8 +19,29 @@ from src.utils import red_text
 class NoTestsToDelete(Exception):
     pass
 
+class NoDiff(Exception):
+    pass
+
 # Create a session factory (similar to main.py)
 Session = sessionmaker(bind=engine)
+
+class TestConditions(BaseModel):
+    conditions: List[str]
+
+class ExtractTestConditions(LMP):
+    prompt = """
+Given the following source files:
+{source_files}
+
+And the test cases that cover these files:
+{test_cases}
+
+Extract a set of conditions/states that the tests are checking for in the sourcefile(s). 
+These test conditions should reflect both implicit and explicit assertions made in the test case
+Now, extract the set of test conditions
+"""
+    response_format = TestConditions
+
 
 def num_delete(tm: TestModule, to_keep: int = 1, to_delete: int = 1) -> int:
     if to_keep and to_delete:
@@ -57,10 +80,6 @@ async def handicap_tm(
     base_path = repo_path
     total_deleted = 0
     num_to_del = num_delete(tm, to_keep=to_keep, to_delete=to_delete)
-    if num_to_del < 3:
-        log.info(f"Skipping {tm.name} as no tests to delete")
-        # raise NoTestsToDelete()
-
     og_contents = tm.test_file.to_code()
 
     log.info(f"Deleting {num_to_del} tests from {tm.name}")
@@ -79,12 +98,8 @@ async def handicap_tm(
             exclude_tests=[(func, tm.test_file.path)], 
             use_cache=False
         )
-        test_cov = modcov_before.get_coverage() - modcov_notest.get_coverage()
-
-        print(f"Test removed coverage: {test_cov}")
-        
+        test_cov = modcov_before.get_coverage() - modcov_notest.get_coverage()        
         removed_tests.append(RemovedTest(name=func.name, content=func.to_code(), cov=test_cov))
-        
         total_deleted += 1
 
     # write deleted test_file contents to disk and measure coverage diff

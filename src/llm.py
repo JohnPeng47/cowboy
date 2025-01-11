@@ -6,7 +6,6 @@ import hashlib
 import json
 import functools
 import time
-from contextlib import contextmanager
 
 from pydantic import BaseModel
 import tiktoken
@@ -17,6 +16,7 @@ from litellm.types.utils import ModelResponse
 from pydantic import BaseModel
 
 from src.model_cost import TOKEN_COST
+from src.utils import green_text
 
 client = instructor.from_litellm(completion)
 
@@ -34,38 +34,6 @@ SHORT_NAMES = {
 
 class FakeAIMessage(BaseModel):
     content: str
-
-class LLMRetry:
-    def __init__(self, max_retries: int = 3, retry_delay: float = 1.0):
-        self.max_retries = max_retries
-        self.retry_delay = retry_delay
-        self.current_retry = 0
-    
-    @contextmanager
-    def __call__(self):
-        """Context manager for handling retries"""
-        while self.current_retry <= self.max_retries:
-            try:
-                yield
-                break  # If no exception, break the loop
-                
-            except Exception as e:
-                self.current_retry += 1
-                
-                if self.current_retry > self.max_retries:
-                    # If we've exceeded retries, re-raise the exception
-                    raise e
-                
-                # Sleep before next retry
-                time.sleep(self.retry_delay)
-                
-                # Optionally log the retry attempt
-                print(f"Retry attempt {self.current_retry}/{self.max_retries} after error: {str(e)}")
-
-    def reset(self):
-        """Reset the retry counter"""
-        self.current_retry = 0
-
 
 class LLMModel:
     """
@@ -214,11 +182,14 @@ class LLMModel:
                 cached_response = self._get_cached_response(caller_function, model_name, prompt_hash)
                                 
                 if cached_response is not None:
+                    caller = inspect.stack()[1]  # Get immediate caller
+                    print(green_text(f"Returning from cache[LLM]:"))
+                    print(green_text(f"|---> Called from {caller.filename}:{caller.lineno} in {caller.function}"))
+
                     # If response is a Pydantic model, reconstruct it
                     if response_format is not None:
                         return response_format.model_validate(cached_response)
                     
-                    print("Cache hit: ", model_name, prompt[:20], key)
                     return cached_response["content"]
             
             # Get response from LLM
@@ -230,8 +201,8 @@ class LLMModel:
             
             # Prepare response for caching
             if isinstance(res, ModelResponse):
-                res = res.choices[0].message
-                cached_response = cached_response
+                res = res.choices[0].message.content
+                cached_response = res
             elif isinstance(res, BaseModel):
                 cached_response = res.model_dump()
             else:
@@ -294,17 +265,27 @@ class LMP[T]:
                model_name: str = "claude",
                max_retries: int = 3,
                retry_delay: int = 1,
+               use_cache: bool = False,
                # gonna have to manually specify the args to pass into model.invoke
                # or do some arg merging shit here
                **kwargs) -> T | str:
         prompt = self._prepare_prompt(**kwargs)
         
-        retry_handler = LLMRetry(max_retries=max_retries, retry_delay=retry_delay)
-        
-        with retry_handler():
-            res = model.invoke(prompt, 
-                               model_name=model_name,
-                               response_format=self.response_format)
-            
-            self._verify_or_raise(res, **kwargs)
-            return res
+        current_retry = 1
+        while current_retry <= max_retries:
+            try:
+                res = model.invoke(prompt, 
+                                   model_name=model_name,
+                                   response_format=self.response_format,
+                                   use_cache=use_cache)
+                self._verify_or_raise(res, **kwargs)
+
+                return res
+            except Exception as e:
+                current_retry += 1
+                
+                if current_retry > max_retries:
+                    raise e
+                
+                time.sleep(retry_delay)
+                print(f"Retry attempt {current_retry}/{max_retries} after error: {str(e)}")

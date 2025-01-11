@@ -209,5 +209,11 @@ def read_rows(repo_name: str,
             else:
                 rows.append(TestModuleEvalData.from_json(data))
 
+
+    if selected_tms:
+        for tm in selected_tms:
+            if tm not in [row.name for row in rows]:
+                raise Exception(f"TM: {tm} not found")
+
     print(f"Successfully read {len(rows)} rows from {repo_dir}")
     return rows

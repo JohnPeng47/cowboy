@@ -11,6 +11,7 @@ from cowboy_lib.test_modules import TestModule
 from cowboy_lib.coverage import CoverageResult
 from cowboy_lib.repo.repository import PatchFile
 
+from src.utils import green_text
 from src.logger import buildtm_logger as log
 
 CACHE_DIR = Path("cache")
@@ -99,8 +100,8 @@ def cache_test_run(func):
             cached_result = read_cache(cache_key)
             if cached_result is not None:
                 caller = inspect.stack()[1]  # Get immediate caller
-                print(f"Returning from cache: {(repo_name, exclude_tests, include_tests)}")
-                print(f"|---> Called from {caller.filename}:{caller.lineno} in {caller.function}")
+                print(green_text(f"Returning from cache[Coverage]: {(repo_name, exclude_tests, include_tests)}"))
+                print(green_text(f"|---> Called from {caller.filename}:{caller.lineno} in {caller.function}"))
                 return cached_result
             
         # collecting basecov for the first time, we will stream the result to the console

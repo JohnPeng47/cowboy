@@ -100,12 +100,11 @@ async def get_tm_target_coverage(
         use_cache=False,
         delete_last=False
     )
-    log.info(f"BaseCov: {base_cov}")
-    log.info(f"ModuleCov: {module_cov.get_coverage()}")
+    # log.info(f"BaseCov: {base_cov}")
+    # log.info(f"ModuleCov: {module_cov.get_coverage()}")
 
     module_diff = base_cov - module_cov.get_coverage()
     total_cov_diff = module_diff.total_cov.covered
-    log.info(f"Total coverage difference: {total_cov_diff}")
     if total_cov_diff > 0:
         chg_cov = []
         coroutines = []
@@ -129,9 +128,9 @@ async def get_tm_target_coverage(
         test_coverage = defaultdict(int)
         cov_res = await asyncio.gather(*[t for t in coroutines])
         for test, test_cov in zip(tm.tests, cov_res): 
-            log.info(f"Collecting coverage for test: {test.name}")  
-            log.info(f"ModuleCov: {module_cov.get_coverage()}")
-            log.info(f"TestCov: {test_cov.get_coverage()}")
+            # log.info(f"Collecting coverage for test: {test.name}")  
+            # log.info(f"ModuleCov: {module_cov.get_coverage()}")
+            # log.info(f"TestCov: {test_cov.get_coverage()}")
             
             # part 3: we subtract the module from the 
             single_diff: TestCoverage = module_cov.get_coverage() - test_cov.get_coverage()
@@ -142,12 +141,8 @@ async def get_tm_target_coverage(
                 
                 test_coverage[test.name] = single_diff.total_cov.covered
                 total_covered += single_diff.total_cov.covered
-                
-                log.warn(f"Coverage for {test} is positive: {single_diff.total_cov.covered}")
-
                 chg_cov.extend(single_diff.cov_list)
             else:
-                log.warn(f"Coverage for {test} is negative: {single_diff.total_cov.covered}")
                 continue
 
         print(f"Total covered for {tm.name}: ", total_covered)
