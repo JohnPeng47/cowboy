@@ -89,28 +89,32 @@ def cache_test_run(func):
         stream = False,
         use_cache = True,
         delete_last = False,
-    ) -> CoverageResult:        
+    ) -> CoverageResult:
+        cache_key = compute_hash(repo_name, exclude_tests, include_tests, patch_file)
+        
         if use_cache:
-            init_cache()
-            cache_key = compute_hash(repo_name, exclude_tests, include_tests, patch_file)
-            if delete_last:
-                # Delete the last existing entry for the computed hash
-                delete_cache_entry(cache_key)
-            
-            cached_result = read_cache(cache_key)
-            if cached_result is not None:
-                caller = inspect.stack()[1]  # Get immediate caller
-                print(green_text(f"Returning from cache[Coverage]: {(repo_name, exclude_tests, include_tests)}"))
-                print(green_text(f"|---> Called from {caller.filename}:{caller.lineno} in {caller.function}"))
-                return cached_result
+            try:
+                init_cache()
+                if delete_last:
+                    # Delete the last existing entry for the computed hash
+                    delete_cache_entry(cache_key)
+                
+                cached_result = read_cache(cache_key)
+                if cached_result is not None:
+                    caller = inspect.stack()[1]  # Get immediate caller
+                    print(green_text(f"Returning from cache[Coverage]: {(repo_name, exclude_tests, include_tests)}"))
+                    print(green_text(f"|---> Called from {caller.filename}:{caller.lineno} in {caller.function}"))
+                    return cached_result
+            except Exception:
+                pass
             
         # collecting basecov for the first time, we will stream the result to the console
         if not exclude_tests and not include_tests and not patch_file:
-            log.info("First time running base coverage, streaming to console")
+            print(green_text("First time running base coverage, streaming to console"))
             stream = True
 
         result = await func(repo_name, service_args, exclude_tests, include_tests, patch_file, stream)
-        if use_cache and not cached_result:
+        if result:
             log.info(f"Saving to cache: {(repo_name, exclude_tests, include_tests)}")
             save_cache(cache_key, result)
 

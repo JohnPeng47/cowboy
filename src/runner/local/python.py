@@ -3,7 +3,7 @@ from src.lib.repo.repository import PatchFile, PatchFileContext, GitRepo
 from src.lib.coverage import CoverageResult
 from src.lib.api.runner.shared import RunTestTaskArgs, FunctionArg
 from src.lib.test_modules import TestModule
-
+from src.utils import confirm_action
 from src.logger import testgen_logger, buildtm_logger, MultiLogger
 
 from .models import RepoConfig
@@ -201,9 +201,7 @@ class PytestDiffRunner:
         # if not self.interpreter.exists():
         #     raise RunnerError(f"Runtime path {self.interpreter} does not exist")
 
-        # missing = self.check_missing_deps(self.interpreter)
-        # if missing:
-        #     raise RunnerError(f"{missing} for {self.interpreter}")
+        self.check_missing_deps(self.interpreter)
 
         self.cov_folders = [Path(p) for p in repo_conf.python_conf.cov_folders]
         cloned_folders = [Path(p) for p in repo_conf.cloned_folders]
@@ -220,8 +218,8 @@ class PytestDiffRunner:
         """
         not_installed = []
         deps = ["pytest-cov", "pytest"]
-        try:
-            for dep in deps:
+        for dep in deps:
+            try:
                 result = subprocess.run(
                     [interp, "-m", "pip", "show", dep],
                     capture_output=True,
@@ -230,14 +228,15 @@ class PytestDiffRunner:
                 if result.returncode != 0:
                     not_installed.append(dep)
 
-        except (subprocess.CalledProcessError, FileNotFoundError):
-            not_installed.append(dep)
+            except (subprocess.CalledProcessError, FileNotFoundError):
+                not_installed.append(dep)
+                continue
 
-        return (
-            f"The following deps are not installed in the env: {not_installed}\nPlease install these"
-            if not_installed
-            else ""
-        )
+        if not_installed:
+            proceed = confirm_action(f"The following deps are not installed in the env: {not_installed}\Proceed?")
+            if not proceed:
+                raise Exception("Install deps")
+
 
     def verify_clone_dirs(self, cloned_dirs: List[Path]):
         """

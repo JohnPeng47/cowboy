@@ -1,13 +1,13 @@
 {
-    "repo_name": "codecovapi-neutered2",
+    "repo_name": "cowboy-server",
     "url": "https://github.com/codecov/codecov-api.git",
     "cloned_folders": [
-        "/home/ubuntu/cowboy"
+        "/home/ubuntu/cowboy-data/cowboy-server"
     ],
-    "source_folder": "/home/ubuntu/cowboy",
+    "source_folder": "/home/ubuntu/cowboy-data/cowboy-server",
     "python_conf": {
         "cov_folders": ["./"],
-        "interp": "docker-compose exec api python",
+        "interp": "/home/ubuntu/cowboy-data/cowboy-server/.venv/bin/python",
         "test_folder": ".",
         "pythonpath": ""
     }

@@ -159,16 +159,18 @@ async def evaluate(repo_name: str,
               help="Comma-separated list of TestModules to evaluate (e.g. 'module1,module2')")
 @click.option("--skip", type=int, default=1,
               help="Num to skip while iterating")
+@click.option("--clear-cache", is_flag=True, default=False)
 @coro
 async def setup_eval_repo(repo_name: str, 
                               keep: int, 
                               delete: int,
                               num_tms: int,
                               skip: int,
-                              selected_tms: List[str]):
+                              selected_tms: List[str],
+                              clear_cache: bool):
     """Neuter a repository by removing test functions."""
     repo = get_repo(repo_name)
-    base_cov = await run_test(repo.repo_name, None)
+    base_cov = await run_test(repo.repo_name, None, delete_last=clear_cache)
     base_cov = base_cov.get_coverage()
     
     dataset = init_dataset(
@@ -215,7 +217,7 @@ async def setup_eval_repo(repo_name: str,
                 to_keep=keep, 
                 to_delete=delete,
             )
-            persist_tm(tm_dataset, tm)
+            persist_tm(repo_name, tm)
 
             if tm.test_file.path and newfile_contents and deleted:
                 handicapped.append((tm.test_file.path, newfile_contents, deleted))
@@ -223,7 +225,7 @@ async def setup_eval_repo(repo_name: str,
                 if num_tms and processed_tms == num_tms:
                     break
 
-        except (NoTestsToDelete, NoDiff):
+        except (NoTestsToDelete, NoDiff, Exception):
             print(red_text(f"Skipping {tm.name} due to no diff or no tests to delete"))
             continue
 
@@ -288,6 +290,10 @@ async def setup_repo(repo_name: str,
         )
         tm_data.persist(tm)
 
+APPLY_ACTION = """
+Do you want to apply the patch (y/N): 
+"""
+
 @cli.command()
 @click.argument("output_path", type=click.Path(exists=True, path_type=Path))
 @coro
@@ -309,6 +315,8 @@ async def apply(output_path: Path):
             click.echo(f"TestResult validation error: {e} => Skipping {file}", err=True)
             continue
 
+    test_cases_str += f"\n{APPLY_ACTION}"
+    
     confirm = confirm_action(test_cases_str)
     if not confirm:
         sys.exit(1)

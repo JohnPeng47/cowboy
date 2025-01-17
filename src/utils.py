@@ -65,8 +65,10 @@ def async_timed(func):
 
 def confirm_action(prompt: str) -> bool:
     """Get user confirmation for an action"""
+    prompt += "\n(y/N)"
+    
     while True:
-        response = input(f"{prompt}\nDo you want to apply the patch (y/N): ").lower().strip()
+        response = input(f"{prompt}").lower().strip()
         if response in ['y', 'yes']:
             return True
         if response in ['n', 'no', '']:

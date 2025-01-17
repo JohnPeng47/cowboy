@@ -89,7 +89,7 @@ async def get_tm_target_coverage(
 
     # First loop we find the total coverage of each test by itself
     only_module = tm
-    log.info(f"Collecting target chunks for {tm.name}")
+    print(f"Collecting target chunks for {tm.name}")
 
     # TODO: should be storing this as well
     module_cov = await run_test(
@@ -105,6 +105,14 @@ async def get_tm_target_coverage(
     # log.info(f"ModuleCov: {module_cov.get_coverage()}")
 
     module_diff = base_cov - module_cov.get_coverage()
+    mod_cov = base_cov - module_diff
+
+    print("module diff: ", module_diff)
+    print("Covered files: ", [cov.filename for cov in mod_cov.cov_list])
+    
+    # import sys
+    # sys.exit()
+
     total_cov_diff = module_diff.total_cov.covered
     if total_cov_diff > 0:
         chg_cov = []
