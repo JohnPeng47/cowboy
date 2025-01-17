@@ -154,24 +154,43 @@ def test_detect_indentation():
     # assert indent.char == " "
     # assert indent.size == 4
 
-# def test_scope_class():
-#     """Test that test functions have correct scope assignment"""
-#     sample_code = [
-#         "def test_something():",
-#         "    return True",
-#         "",
-#         "class TestClass:",
-#         "    def test_method(self):",
-#         "        pass",
-#         ""
-#     ]
-
-#     source = TestFile(lines=sample_code, path=Path("test.py"))
+def test_aider_rep():
+    """Test the aider_rep representation of a source file"""
+    code = [
+        "def standalone_func():",
+        "    pass",
+        "",
+        "@decorator",
+        "def decorated_func():", 
+        "    pass",
+        "",
+        "class TestClass:",
+        "    def method1(self, arg1):",
+        "        pass",
+        "",
+        "    @property",
+        "    def prop(self):",
+        "        pass",
+        ""
+    ]
     
-#     # Test standalone test function scope
-#     func = source.find_function("test_something")
-#     assert func.scope is None  # Top-level functions have no scope
+    source = SourceFile(lines=code, path=Path("test.py"))
     
-#     # Test method within class scope
-#     method = source.find_function("TestClass.test_method")
-#     assert method.scope.name == "TestClass"
+    expected = [
+        "test.py:",
+        "⋮...",
+        "│def standalone_func():",
+        "⋮...",
+        "│@decorator", 
+        "│def decorated_func():",
+        "⋮...",
+        "│class TestClass:",
+        "│",
+        "│\tdef method1(self, arg1):",
+        "⋮...",
+        "│\t@property",
+        "│\tdef prop(self):",
+        "⋮..."
+    ]
+    
+    assert source.aider_rep() == "\n".join(expected)

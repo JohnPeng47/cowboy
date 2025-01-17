@@ -17,7 +17,7 @@ from src.eval.eval_dataset import eval_dataset, eval_dataset_braintrust
 from src.eval.create_dataset import handicap_tm, NoTestsToDelete, NoDiff
 from src.local.db import get_repo, get_tm
 from src.local.models import TestResults, TestModuleData, read_rows
-from src.local.tgt_coverage import get_tm_target_files
+from src.local.tgt_coverage import get_target_files
 from src.local.apply import (
     validate, 
     print_test_summary, 
@@ -94,7 +94,7 @@ async def setup_eval_repo(repo_name: str,
     handicapped = []
     processed_tms = 0
     for tm in filtered_tms:
-        target_files, chunks = await get_tm_target_files(repo.repo_name, base_cov, src_repo, tm)
+        target_files, chunks = await get_target_files(repo.repo_name, base_cov, src_repo, tm)
         tm.target_files = [Path(f) for f in target_files]
         tm.chunks = chunks
 

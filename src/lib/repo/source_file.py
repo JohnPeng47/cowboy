@@ -10,6 +10,7 @@ from logging import getLogger
 from copy import deepcopy
 
 import subprocess
+import ast
 
 
 logger = getLogger("test_results")
@@ -247,6 +248,54 @@ class SourceFile:
             lines=data["lines"],
             path=Path(data["path"])
         )
+
+    def aider_rep(self) -> str:
+        """
+        Returns a string representation of the file with class/function structure,
+        using vertical bars and ellipses for visual hierarchy.
+        """        
+        output = [f"{self.path}:"]
+        output.append("⋮...")
+                
+        # we only print funcs from the global scope
+        global_funcs = [func for func in self.functions if not func.scope]
+        all_nodes = sorted(self.classes + global_funcs, key=lambda x: x.range[0])
+        
+        for node in all_nodes:
+            # Skip nested nodes as they'll be handled by their parents
+            if node.scope is not None:
+                continue
+            
+            if node.type == "Class":
+                # Add class definition
+                line = f"│class {node.name}"
+                output.append(line + ":")
+                
+                # Add empty line if class has attributes
+                if node.functions:
+                    output.append("│")
+                
+                # Add nested functions with indentation
+                for func in sorted(node.functions, key=lambda x: x.range[0]):
+                    # Add decorators
+                    for dec in func.decorators:
+                        output.append(f"│\t@{dec.name}")
+                    # Add function definition
+                    func_name = func.name.split(".")[1]
+                    args_str = ", ".join(arg.name for arg in func.arguments)
+                    output.append(f"│\tdef {func_name}({args_str}):")
+                    output.append("⋮...")
+                
+            else:  # Function
+                # Add decorators
+                for dec in node.decorators:
+                    output.append(f"│@{dec.name}")
+                # Add function definition
+                args_str = ", ".join(arg.name for arg in node.arguments)
+                output.append(f"│def {node.name}({args_str}):")
+                output.append("⋮...")
+        
+        return "\n".join(output)
 
 class TestFile(SourceFile):
     def __init__(self, *args, **kwargs):

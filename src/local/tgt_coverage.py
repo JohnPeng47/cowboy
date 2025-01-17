@@ -26,14 +26,27 @@ covered during execution?
 """
     response_format = SourceFiles
 
+    def _prepare_prompts(self, **kwargs):
+        mod_cov: TestCoverage = kwargs["mod_cov"]
+        src_repo: SourceRepo = kwargs["src_repo"]
+        tm: TestModule = kwargs["tm"]
+
+        # source_files = ""
+        # nonzero_cov = filter(lambda cov: cov.stmts > 0, mod_cov.cov_list)
+        # for cov in nonzero_cov:
+        #     test_file = src_repo.find_file(cov.filename)
+        
+    
     def _verify_or_raise(self, res: SourceFiles, **kwargs):
         source_files = kwargs["source_files"]
 
         for res_f in res.files:
             if not any(res_f == f[0] for f in source_files):            
                 raise LLMException(f"File returned from response: {res_f} does not exist in origin arg")
+            
 
-async def get_tm_target_files(repo_name: str,
+
+async def get_target_files(repo_name: str,
                               base_cov: TestCoverage,
                               src_repo: SourceRepo, 
                               test_module: TestModule) -> List[str]:
@@ -45,6 +58,7 @@ async def get_tm_target_files(repo_name: str,
         run_test=run_test_local,
         run_args=None
     )
+
     module_cov = await run_test_local(
         repo_name,
         None,

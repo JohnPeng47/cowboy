@@ -114,7 +114,10 @@ class Decorator(ASTNode):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-
+    @property
+    def name(self):
+        return self._name
+    
 class Class(ASTNode):
     def __init__(self, *args, **kwargs):
         self.functions: List[Function] = kwargs.pop("functions", [])

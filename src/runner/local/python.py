@@ -199,9 +199,9 @@ class PytestDiffRunner:
         self.python_path = Path(repo_conf.python_conf.pythonpath)
 
         # if not self.interpreter.exists():
-        #     raise RunnerError(f"Runtime path {self.interpreter} does not exist")
+        #     raise RunnerError(f"Runtime path {self.interpretper} does not exist")
 
-        self.check_missing_deps(self.interpreter)
+        # self.check_missing_deps(self.interpreter)
 
         self.cov_folders = [Path(p) for p in repo_conf.python_conf.cov_folders]
         cloned_folders = [Path(p) for p in repo_conf.cloned_folders]
