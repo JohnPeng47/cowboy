@@ -8,6 +8,7 @@ from src.utils import yaml
 from src.test_gen.augment_test.composer import TestAugmentArgs
 from src.lib.test_modules import TestModule
 from src.lib.coverage import TestCoverage
+from src.utils import red_text
 
 from .db import get_tm, get_repo, persist_tm
 
@@ -94,7 +95,18 @@ class TestModuleData:
             json.dump(self.to_json(), f, indent=2)
 
         persist_tm(repo_name, tm)
- 
+
+    def get_targeted_files(self) -> List[Path]:
+        tm = self.get_tm()
+        target_files = set([f for f in tm.get_targeted_files()])
+        target_files_chunks = set([f for f in tm.get_targeted_files_from_chunks()])
+        
+        intersect = target_files.intersection(target_files_chunks)
+        if not intersect:
+            print(red_text(f"{self.name} does not have any targeted files"))
+
+        return intersect
+
 @dataclass
 class RemovedTest:
     name: str

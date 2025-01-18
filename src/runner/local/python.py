@@ -145,14 +145,10 @@ class LockedRepos:
     @contextmanager
     def acquire_one(self) -> GitRepo:
         git_repo: GitRepo = self.queue.get()  # This will block if the queue is empty
-
-        log.info(f"Acquired repo: {git_repo.repo_folder}")
         try:
             yield git_repo
         finally:
             self.release(git_repo)
-
-            log.info(f"Released repo: {git_repo.repo_folder}")
 
     def release(self, git_repo: GitRepo):
         self.queue.put(git_repo)  # Return the repo back to the queue

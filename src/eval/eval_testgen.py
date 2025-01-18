@@ -21,17 +21,9 @@ def score_coverage(output: Dict, expected: Dict):
     for f in output["target_files"]:
         if f in [cov.filename for cov in total_cov.cov_list]:
             print(f"{name} has matching target_files : {f} !!!")
-        
+                
     score = total_cov.get_covered(cov_added)
     
-    # print("COV EXPECTED:")
-    # for cov_expected in total_cov.cov_list:
-    #     print(cov_expected)
-
-    # print("COV ADDED:")
-    # for cov_add in cov_added.cov_list:
-    #     print(cov_add)
-
     print(f"Cov added: {score} / {total_cov.total_cov.covered}")
     return score / total_cov.total_cov.covered
 

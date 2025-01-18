@@ -1,3 +1,6 @@
+from typing import List
+from pathlib import Path
+
 from .augment_base import AugmentTestStrategy
 from .prompt import AugmentTestPromptWithCtxt
 from ..types import CtxtWindowExceeded
@@ -11,7 +14,7 @@ class AugmentClassWithCtxtStrat(AugmentTestStrategy):
     Provides the src code context from the source code file targeted by the
     test_module
     """
-    def build_prompt(self) -> AugmentTestPromptWithCtxt:
+    def build_prompt(self, targeted_files: List[Path]) -> AugmentTestPromptWithCtxt:
         prompt = AugmentTestPromptWithCtxt()
         curr_commit = get_current_git_commit(self.src_repo.repo_path)
 
@@ -22,7 +25,7 @@ class AugmentClassWithCtxtStrat(AugmentTestStrategy):
 
         # TODO: how to narrow the scope of this to class or even function
         # have ref to func/class node in TargetCode
-        for fp in self.test_module.targeted_files():
+        for fp in targeted_files:
             # NEWTODO: we should remove this check and rely on omit in .coveragerc to filter out unwanted test files
             # in the coverage
             if fp.match("tests/*") or fp.match("*/tests/*") or fp.match("test_*"):
@@ -37,7 +40,7 @@ class AugmentClassWithCtxtStrat(AugmentTestStrategy):
                 log.warn(f"File {fp} too large to fit in prompt")
                 continue
 
-        if not self.test_module.targeted_files():
+        if not targeted_files:
             log.warn(
                 f"No src files targeted by {self.test_module.name} found")
 

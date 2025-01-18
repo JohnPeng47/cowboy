@@ -24,6 +24,7 @@ from src.config import LLM_RETRIES
 import re
 from dataclasses import dataclass
 from typing import Tuple, List, Callable
+from pathlib import Path
 
 
 def extract_python_code(llm_output: str) -> str:
@@ -50,6 +51,7 @@ class Composer:
         strat: AugmentStratType,
         evaluator: EvaluatorType,
         src_repo: SourceRepo,
+        targeted_files: List[Path],
         test_input: TestCaseInput,
         run_args: RunServiceArgs,
         model: str,
@@ -68,6 +70,7 @@ class Composer:
         # cache settings
         self.use_cache = use_cache
         self.delete_last = delete_last
+        self.targeted_files = targeted_files
 
         self.strat: BaseStrategy = AUGMENT_STRATS[strat](self.src_repo, self.test_input)
         self.evaluator: Evaluator = AUGMENT_EVALS[evaluator](
@@ -95,6 +98,8 @@ class Composer:
     ) -> List[Tuple[Function, TestCoverage]]:
         no_overlap = []
         overlap_cov = module_cov
+        overlap_cov.isdiff = True
+
         for test, cov in tests:
             new_cov = overlap_cov + cov
             if new_cov.total_cov.covered > overlap_cov.total_cov.covered:
@@ -150,7 +155,7 @@ class Composer:
         improved_tests = []
         failed_tests = []
         no_improve_tests = []
-        prompt = self.strat.build_prompt()
+        prompt = self.strat.build_prompt(self.targeted_files)
 
         log.info(f"Prompt: \n{prompt}")
 

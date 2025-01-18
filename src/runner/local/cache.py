@@ -115,7 +115,6 @@ def cache_test_run(func):
 
         result = await func(repo_name, service_args, exclude_tests, include_tests, patch_file, stream)
         if result:
-            log.info(f"Saving to cache: {(repo_name, exclude_tests, include_tests)}")
             save_cache(cache_key, result)
 
         return result

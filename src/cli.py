@@ -13,7 +13,7 @@ from src.lib.repo import SourceRepo
 from src.runner.local.run_test import run_test
 from src.test_modules.iter_tms import iter_test_modules
 from src.config import BT_PROJECT, BRAINTRUST_API_KEY
-from src.eval.eval_dataset import eval_dataset, eval_dataset_braintrust
+from src.eval.eval_testgen import eval_dataset, eval_dataset_braintrust
 from src.eval.create_dataset import handicap_tm, NoTestsToDelete, NoDiff
 from src.local.db import get_repo, get_tm, persist_tm
 from src.local.models import TestResults, TestModuleData, read_rows
@@ -93,16 +93,10 @@ async def evaluate(repo_name: str,
     else:
         raise ValueError("Must provide either selected-tms or num-tms argument. If you want to run on all tests, use --num-tms BIG_NUMBER")
 
-    src_covered_datalist = []
-    for datum in tm_datalist:
-        if get_tm(repo_name, datum.name).targeted_files():
-            src_covered_datalist.append(datum)
-        else:
-            print(red_text(f"{datum.name} is not covered"))
 
     # convert to braintrust
     if braintrust:
-        dataset = [datum.to_json_braintrust() for datum in src_covered_datalist]
+        dataset = [datum.to_json_braintrust() for datum in tm_datalist]
         tm_names = [d["input"]["name"] for d in dataset]
         for d in dataset:
             d["input"].update(
@@ -115,7 +109,7 @@ async def evaluate(repo_name: str,
             )
 
     else:
-        dataset = [datum.to_json() for datum in src_covered_datalist]
+        dataset = [datum.to_json() for datum in tm_datalist]
         tm_names = [d["name"] for d in dataset]
         for d in dataset:
             d.update(

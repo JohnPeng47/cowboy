@@ -14,27 +14,30 @@ from src.local.models import TestCase, TestResults, TestModuleData, TestModuleEv
 
 async def extend_tests(data: Dict):
     if data.get("input", None):
-        repo_data = TestModuleEvalData.from_json(data["input"])
+        test_data = TestModuleEvalData.from_json(data["input"])
         strat = data["input"]["strat"]
         evaluator = data["input"]["evaluator"]
         n_times = data["input"]["n_times"]
         model = data["model"]
         
     else:
-        repo_data = TestModuleData.from_json(data)  
+        test_data = TestModuleData.from_json(data)  
         strat = data["strat"]
         evaluator = data["evaluator"]
         n_times = data["n_times"]
         model = data["model"]
 
-    tm = repo_data.get_tm()
+    tm = test_data.get_tm()
+
+    print(f"Targeted files [{tm.name}]: ", test_data.get_targeted_files())
     
-    src_repo = SourceRepo(Path(repo_data.repo_config["source_folder"]))
+    src_repo = SourceRepo(Path(test_data.repo_config["source_folder"]))
     composer = Composer(
-        repo_name=repo_data.repo_config["repo_name"],
+        repo_name=test_data.repo_config["repo_name"],
         strat=strat,
         evaluator=evaluator,
         src_repo=src_repo,
+        targeted_files=test_data.get_targeted_files(),
         test_input=tm,
         run_args=None,
         model=model,
@@ -47,12 +50,15 @@ async def extend_tests(data: Dict):
     improved, failed_tests, no_improve_tests = await composer.generate_test(
         n_times=n_times
     )
-    output_dir = EVAL_OUTPUT_ROOT / repo_data.repo_config["repo_name"]
+    output_dir = EVAL_OUTPUT_ROOT / test_data.repo_config["repo_name"]
+    if not output_dir.exists():
+        output_dir.mkdir(parents=True)
+
     cov_added = TestCoverage([], isdiff=True)
 
     git_hash = get_repo_head(src_repo.repo_path)
     test_results = TestResults(
-        repo_name=repo_data.repo_config["repo_name"],
+        repo_name=test_data.repo_config["repo_name"],
         git_hash=git_hash,
         tm_name=tm.name,
         tests=[]
