@@ -36,15 +36,12 @@ covered during execution?
         # for cov in nonzero_cov:
         #     test_file = src_repo.find_file(cov.filename)
         
-    
     def _verify_or_raise(self, res: SourceFiles, **kwargs):
         source_files = kwargs["source_files"]
 
         for res_f in res.files:
             if not any(res_f == f[0] for f in source_files):            
                 raise LLMException(f"File returned from response: {res_f} does not exist in origin arg")
-            
-
 
 async def get_target_files(repo_name: str,
                               base_cov: TestCoverage,

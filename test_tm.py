@@ -6,9 +6,9 @@ from pathlib import Path
 import asyncio
 
 repo_names = [
-    "codecovapi-neutered2",
+    # "codecovapi-neutered2",
     "textual-neutered",
-    "requests"
+    # "requests"
 ]
 src_repo = SourceRepo(Path("/home/ubuntu/codecov-api"))
 
@@ -21,16 +21,22 @@ async def main():
             try:
                 tm = get_tm(repo_name, row.name)
 
-                target_files = set([str(f) for f in tm.targeted_files()])
-                target_files_chunks = set([str(f) for f in tm.targeted_files_from_chunks()])
+                target_files = set([str(f) for f in tm.get_targeted_files()])
+                target_files_chunks = set([str(f) for f in tm.get_targeted_files_from_chunks()])
 
                 print(f"TM: {tm.name}")
                 print("LLM: ", target_files)
                 print("Chunks: ", target_files_chunks)
                 print("Intersection: ", target_files.intersection(target_files_chunks))
-                print("Intersect len: ", len(target_files.intersection(target_files_chunks)))
+                
+                # compare stats
+                intersect = len(target_files.intersection(target_files_chunks))
+                over_llm = len(target_files) - intersect
+                over_chunks = len(target_files_chunks) - intersect
+                print("Intersect len: ", intersect, "Over llm: ", over_llm, "Over chunks: ", over_chunks)
 
             except Exception as e:
+                raise e
                 continue
 
 if __name__ == "__main__":

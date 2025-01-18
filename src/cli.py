@@ -217,7 +217,7 @@ async def setup_eval_repo(repo_name: str,
                 to_keep=keep, 
                 to_delete=delete,
             )
-            persist_tm(repo_name, tm)
+            tm_dataset.persist(tm)
 
             if tm.test_file.path and newfile_contents and deleted:
                 handicapped.append((tm.test_file.path, newfile_contents, deleted))

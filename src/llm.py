@@ -224,7 +224,7 @@ class LLMModel:
     def invoke(self, 
                prompt: str,
                *, 
-               model_name: str = "gpt-4", 
+               model_name: str = "gpt-4o", 
                response_format: Optional[Type[BaseModel]] = None,
                use_cache: bool = True,
                **kwargs) -> Any:

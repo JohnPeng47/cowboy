@@ -41,12 +41,17 @@ def num_tokens_from_string(string: str, encoding_name: str) -> int:
 
 
 class Prompt:
-    def __init__(self, prompt: str, model_spec: LMModelSpec, keywords: List[str]):
+    def __init__(self, prompt: str, keywords: List[str], max_len: int = 8096):
+        """
+        Prompt class that is initialized with a set of key/value pairs, which can then be overriden
+        via update_line to dynamically include a set of values mapped to keys
+        
+        Also contains utility methods for ensuring that prompt does not exceed size limits
+        """
         self._prompt = prompt
         self._keyword_dict = defaultdict(lambda: "")
         self._keywords = keywords
-        self._max_len = model_spec.ctxt_window
-        self._model_name = model_spec.model
+        self._max_len = max_len
         self._current_len = self._tokenize(prompt)
 
     def _tokenize(self, prompt: str):

@@ -29,7 +29,7 @@ The following output was generated
 Now, generate your response
 """
 
-        super().__init__(prompt, gpt4_spec, ["test_code"])
+        super().__init__(prompt, ["test_code"])
 
 
 class AugmentTestPromptWithCtxt(Prompt):
@@ -70,7 +70,7 @@ This is also a bad response (1-indented):
 
 Now, generate your response. 
 """
-        super().__init__(prompt, gpt4_spec, ["test_code", "file_contents"])
+        super().__init__(prompt, ["test_code", "file_contents"])
 
 # ONLY 3 RESPONSES
 # class AugmentTestPromptWithCtxt(Prompt):
@@ -139,5 +139,5 @@ The following output was generated
 Now, generate your response
 """
         super().__init__(
-            prompt, gpt4_spec, ["test_code", "file_contents", "missing_lines"]
+            prompt, ["test_code", "file_contents", "missing_lines"]
         )
